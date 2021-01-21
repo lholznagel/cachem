@@ -1,0 +1,10 @@
+[package]
+name = "cachem_example"
+version = "0.0.0"
+edition = "2018"
+publish = false
+
+[dependencies]
+async-trait = "0.1.42"
+cachem_utils = { path = "../utils" }
+tokio = { version = "1.0.2", features = ["full"] }
