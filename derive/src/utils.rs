@@ -10,13 +10,13 @@ pub fn is_collection(
 pub fn is_vec(
     type_path: &TypePath
 ) -> bool {
-    collection_ident(&type_path) == Ident::new("Vec", Span::call_site())
+    get_ident(&type_path) == Ident::new("Vec", Span::call_site())
 }
 
 pub fn is_hash_set(
     type_path: &TypePath
 ) -> bool {
-    collection_ident(&type_path) == Ident::new("HashSet", Span::call_site())
+    get_ident(&type_path) == Ident::new("HashSet", Span::call_site())
 }
 
 pub fn ident_from_type(
@@ -54,13 +54,7 @@ pub fn get_collection_datatype(
                     GenericArgument::Type(x) => {
                         match x {
                             Type::Path(x) => {
-                                x
-                                    .path
-                                    .segments
-                                    .first()
-                                    .unwrap()
-                                    .ident
-                                    .clone()
+                                get_ident(x)
                             },
                             _ => panic!("Invalid type")
                         }
@@ -72,14 +66,18 @@ pub fn get_collection_datatype(
         }
 }
 
-fn collection_ident(
+fn get_ident(
     type_path: &TypePath
 ) -> Ident {
-    type_path
-        .path
-        .segments
-        .first()
-        .unwrap()
-        .ident
-        .clone()
+    if let Some(x) = type_path.path.get_ident() {
+        x.clone()
+    }  else {
+        type_path
+            .path
+            .segments
+            .first()
+            .unwrap()
+            .ident
+            .clone()
+    }
 }

@@ -7,5 +7,10 @@ publish = false
 
 [dependencies]
 async-trait = "0.1.42"
-cachem_derive = { path = "../derive" }
-tokio = { version = "1.0.2", features = ["full"] }
+tokio = { version = "1.1.0", features = ["full"] }
+
+cachem_derive = { path = "../derive", optional = true }
+
+[features]
+default = []
+derive = ["cachem_derive"]

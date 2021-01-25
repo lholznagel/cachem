@@ -42,8 +42,8 @@ impl Protocol {
         data: T,
     ) -> Result<R, CachemError>
     where
-        T: ProtocolParse + ProtocolRequest,
-        R: ProtocolParse {
+        T: Parse + ProtocolRequest,
+        R: Parse {
 
         Protocol::request_with_buf(conn.get_mut(), data).await
     }
@@ -58,8 +58,8 @@ impl Protocol {
     ) -> Result<R, CachemError>
     where
         B: AsyncBufRead + AsyncRead + AsyncWrite + Send + Unpin,
-        T: ProtocolParse + ProtocolRequest,
-        R: ProtocolParse {
+        T: Parse + ProtocolRequest,
+        R: Parse {
 
         buf.write_u8(data.action().into()).await?;
         buf.write_u8(data.cache_type().into()).await?;
@@ -77,7 +77,7 @@ impl Protocol {
     ) -> Result<(), CachemError>
     where
         B: AsyncWrite + Send + Unpin,
-        T: ProtocolParse {
+        T: Parse {
 
         data.write(buf).await?;
         buf.flush().await?;
@@ -90,7 +90,7 @@ impl Protocol {
     ) -> Result<R, CachemError>
     where
         B: AsyncBufRead + AsyncRead + Send + Unpin,
-        R: ProtocolParse {
+        R: Parse {
 
         Ok(R::read(buf).await?)
     }
@@ -109,7 +109,7 @@ impl Protocol {
 /// pub struct ExampleImplementation(Vec<u8>);
 /// 
 /// #[async_trait]
-/// impl ProtocolParse for ExampleImplementation {
+/// impl Parse for ExampleImplementation {
 ///     async fn parse<B>(
 ///         mut data: B
 ///     ) -> Result<S, CachemErrorelf>
@@ -137,7 +137,7 @@ impl Protocol {
 /// # }
 /// ```
 #[async_trait]
-pub trait ProtocolParse: Sized {
+pub trait Parse: Sized {
     /// An implementor should read the given buffer and parse that data into the
     /// implementing struct
     async fn read<B>(
@@ -157,7 +157,7 @@ pub trait ProtocolParse: Sized {
 /// Provides functions that are needed in order to send a request from the 
 /// driver to the database
 ///
-/// Requires that [`ProtocolParse`] is implemented
+/// Requires that [`Parse`] is implemented
 ///
 /// ## Implementation example:
 /// ```
@@ -170,7 +170,7 @@ pub trait ProtocolParse: Sized {
 /// pub struct ExampleImplementation(Vec<u8>);
 /// 
 /// #[async_trait]
-/// impl ProtocolParse for ExampleImplementation {
+/// impl Parse for ExampleImplementation {
 ///     async fn parse<B>(
 ///         mut data: B
 ///     ) -> Result<S, CachemErrorelf>

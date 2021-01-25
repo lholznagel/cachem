@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use cachem_utils::*;
 use tokio::net::TcpStream;
 
-#[derive(Default, ProtocolParse)]
+#[derive(Default, Parse)]
 struct Demo {
     val_u32: u32,
     val_u64: u64,
@@ -14,22 +14,22 @@ struct Demo {
     val_bool: bool,
 }
 
-#[derive(Default, ProtocolParse)]
+#[derive(Default, Parse)]
 struct Demo2(Vec<Demo>);
 
-#[derive(Default, ProtocolParse)]
+#[derive(Default, Parse)]
 struct Demo3(pub u32);
 
-#[derive(Default, ProtocolParse)]
+#[derive(Default, Parse)]
 struct Demo4;
 
-#[derive(ProtocolParse)]
+#[derive(Parse)]
 struct Demo5(HashSet<u32>);
 
-#[derive(ProtocolParse)]
+#[derive(Parse)]
 struct Demo6 {
     not_a_vec: u32,
-    my_vec: Vec<Demo>
+    my_vec: Vec<Demo>,
 }
 
 #[tokio::main]

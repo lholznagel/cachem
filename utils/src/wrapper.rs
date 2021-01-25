@@ -1,10 +1,10 @@
-use crate::{CachemError, ProtocolParse};
+use crate::{CachemError, Parse};
 
 use async_trait::async_trait;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 #[async_trait]
-impl ProtocolParse for u32 {
+impl Parse for u32 {
     async fn read<B>(
         buf: &mut B
     ) -> Result<Self, CachemError>
@@ -27,7 +27,7 @@ impl ProtocolParse for u32 {
 }
 
 #[async_trait]
-impl ProtocolParse for u64 {
+impl Parse for u64 {
     async fn read<B>(
         buf: &mut B
     ) -> Result<Self, CachemError>
@@ -50,7 +50,7 @@ impl ProtocolParse for u64 {
 }
 
 #[async_trait]
-impl ProtocolParse for u128 {
+impl Parse for u128 {
     async fn read<B>(
         buf: &mut B
     ) -> Result<Self, CachemError>
@@ -73,7 +73,7 @@ impl ProtocolParse for u128 {
 }
 
 #[async_trait]
-impl ProtocolParse for f32 {
+impl Parse for f32 {
     async fn read<B>(
         buf: &mut B
     ) -> Result<Self, CachemError>
@@ -98,7 +98,7 @@ impl ProtocolParse for f32 {
 }
 
 #[async_trait]
-impl ProtocolParse for f64 {
+impl Parse for f64 {
     async fn read<B>(
         buf: &mut B
     ) -> Result<Self, CachemError>
@@ -124,7 +124,7 @@ impl ProtocolParse for f64 {
 
 
 #[async_trait]
-impl ProtocolParse for String {
+impl Parse for String {
     async fn read<B>(
         buf: &mut B
     ) -> Result<Self, CachemError>
@@ -150,7 +150,7 @@ impl ProtocolParse for String {
 }
 
 #[async_trait]
-impl ProtocolParse for bool {
+impl Parse for bool {
     async fn read<B>(
         buf: &mut B
     ) -> Result<Self, CachemError>
