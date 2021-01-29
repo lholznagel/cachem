@@ -64,8 +64,10 @@ macro_rules! cachem {
     (
         $uri:expr,
         $(let $v:ident = $e:expr;)*
-        $(($action:path, $cache:path) => ($marker:ident, $model:ty, $cache_copy:ident),)*
+        $(($action:path, $cache:path) => ($marker:ident, $model:path, $cache_copy:ident),)*
     ) => {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
         let listener = tokio::net::TcpListener::bind($uri).await?;
         loop {
             let (mut socket, _) = listener.accept().await?;
@@ -78,7 +80,7 @@ macro_rules! cachem {
                 let mut buf = [0; 2];
 
                 loop {
-                    let mut buf_socket = BufStream::new(socket);
+                    let mut buf_socket = tokio::io::BufStream::new(socket);
                     match buf_socket.read(&mut buf).await {
                         // socket closed
                         Ok(n) if n == 0 => return,
@@ -89,18 +91,12 @@ macro_rules! cachem {
                         }
                     };
 
-                    let action = Action::from(buf[0]);
+                    let action = Actions::from(buf[0]);
                     let cache = Caches::from(buf[1]);
                     let x = match (&action, &cache) {
                         $((&$action, &$cache) => cachem!($marker, $model, $cache_copy, buf_socket),)*
                         _ => panic!("Invalid action / cache combination ({:?}, {:?})", action, cache)
                     };
-
-                    if let Err(e) = x {
-                        log::error!("Message error {}", e);
-                    } else {
-                        log::info!("Message ok");
-                    }
 
                     // return the socket so that we don´t consume it
                     socket = buf_socket.into_inner();

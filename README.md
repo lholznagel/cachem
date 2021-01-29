@@ -56,6 +56,100 @@ The `cachem_utils` crate contains all needed traits and functions.
 Most of the trait can be implemented using proc-macros.
 For the proc macros, the feature `derive` must be added.
 
+### Example
+
+See [main.rs](./example/src/main.rs)
+
+The following code is an example for a minimal server example.
+
+``` rust
+use cachem_utils::*;
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+#[derive(Clone, Debug, Parse)]
+pub struct SampleEntry {
+    pub id:    u32,
+    pub val_1: u32,
+    pub val_2: bool,
+    pub val_3: u64,
+}
+
+#[derive(Debug, Parse)]
+pub struct FetchSampleEntryById(pub u32);
+
+#[derive(Default)]
+pub struct SampleCache(RwLock<HashMap<u32, SampleEntry>>);
+
+impl SampleCache {
+    pub async fn fetch_by_id(&self, id: u32) -> Option<SampleEntry> {
+        if let Some(x) = self.0.read().await.get(&id) {
+            Some(x.clone())
+        } else {
+            None
+        }
+    }
+}
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let sample_cache = Arc::new(SampleCache::default());
+
+    #[derive(Debug)]
+    enum Actions {
+        Fetch
+    }
+    impl From<u8> for Actions {
+        fn from(x: u8) -> Self {
+            match x {
+                0 => Actions::Fetch,
+                _ => panic!("Invalid action")
+            }
+        }
+    }
+
+    #[derive(Debug)]
+    enum Caches {
+        Sample
+    }
+    impl From<u8> for Caches {
+        fn from(x: u8) -> Self {
+            match x {
+                0 => Caches::Sample,
+                _ => panic!("Invalid action")
+            }
+        }
+    }
+
+    cachem! {
+        "0.0.0.0:9999",
+
+        let sample_copy = sample_cache.clone();
+
+        (Actions::Fetch, Caches::Sample) => (FetchId, FetchSampleEntryById, sample_copy),
+    }
+}
+```
+
+There are some restrictions
+- There must exist an enum called `Actions` and `Caches`
+  - Both must implement `Debug`
+  - Both must implement `From<u8>`
+- From every cache implementation there must be a copy `let sample_copy = sample_cache.clone();`
+  - It is recommended to init them as `let sample_cache = Arc::new(SampleCache::default());`
+  - Every Cache should either use a `RwLock` or `Mutex`
+- After that all "routes" must be defined
+  - `(Actions::Fetch, Caches::Sample) => (FetchId, FetchSampleEntryById, sample_copy),`
+  - The action defines what action this is, defined in the enum
+  - The cache that should be used, also defined in the num
+  - After that the type of request is defined, currently this is very limited
+    - `FetchId` -> the function `.fetch_by_id(id)` is called
+    - `FetchAll` -> the function `.fetch_all()` is called
+    - `Lookup` -> the function `.lookup(Vec<id>)` is called
+    - `Insert` -> the function `.insert(Vec<Entry>)` is called
+    - All those will expand to macros that handle reading from the tcp socket
+
 ## The `Parse` trait
 
 ``` rust
