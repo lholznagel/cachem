@@ -172,3 +172,28 @@ impl Parse for bool {
         Ok(())
     }
 }
+
+#[cfg(feature = "uuid")]
+#[async_trait]
+impl Parse for uuid::Uuid {
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        let val = buf.read_u128().await?;
+        Ok(uuid::Uuid::from_u128(val))
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_u128(self.as_u128()).await?;
+        Ok(())
+    }
+}

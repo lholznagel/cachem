@@ -12,5 +12,5 @@ pub use self::server::*;
 pub use self::storage::*;
 pub use self::wrapper::*;
 
-#[cfg(feature="derive")]
+#[cfg(feature = "derive")]
 pub use cachem_derive::*;

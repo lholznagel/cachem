@@ -56,6 +56,9 @@ The `cachem_utils` crate contains all needed traits and functions.
 Most of the trait can be implemented using proc-macros.
 For the proc macros, the feature `derive` must be added.
 
+By adding `with-uuid` the support for uuid´s is enabled.
+This implements the parser trait for `Uuid`.
+
 ### Example
 
 See [main.rs](./example/src/main.rs)
