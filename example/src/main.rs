@@ -1,5 +1,6 @@
 mod sample_structs;
 
+use async_trait::async_trait;
 use cachem_utils::*;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -19,12 +20,16 @@ pub struct FetchSampleEntryById(pub u32);
 #[derive(Default)]
 pub struct SampleCache(RwLock<HashMap<u32, SampleEntry>>);
 
-impl SampleCache {
-    pub async fn fetch_by_id(&self, id: u32) -> Option<SampleEntry> {
-        if let Some(x) = self.0.read().await.get(&id) {
-            Some(x.clone())
+#[async_trait]
+impl Fetch<FetchSampleEntryById> for SampleCache {
+    type Error = ();
+    type ReturnType = SampleEntry;
+
+    async fn fetch(&self, input: FetchSampleEntryById) -> Result<Self::ReturnType, ()> {
+        if let Some(x) = self.0.read().await.get(&input.0) {
+            Ok(x.clone())
         } else {
-            None
+            Err(())
         }
     }
 }
@@ -64,6 +69,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let sample_copy = sample_cache.clone();
 
-        (Actions::Fetch, Caches::Sample) => (FetchId, FetchSampleEntryById, sample_copy),
+        (Actions::Fetch, Caches::Sample) => (sample_copy, fetch, FetchSampleEntryById),
     }
 }

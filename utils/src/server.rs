@@ -1,61 +1,17 @@
+use crate::Parse;
+
 #[macro_export]
 macro_rules! cachem {
     (
-        FetchId,
-        $model:ty,
         $cache_copy:expr,
-        $socket:expr
-    ) => {
-        {
-            let id = Protocol::read::<_, $model>(&mut $socket).await.unwrap();
-            if let Some(x) = $cache_copy.fetch_by_id(id.0).await {
-                Protocol::response(&mut $socket, x).await
-            } else {
-                $socket.write_u8(0u8).await.unwrap();
-                Ok(())
-            }
-        }
-    };
-    (
-        FetchAll,
+        $func:ident,
         $model:ty,
-        $cache_copy:expr,
-        $socket:expr
-    ) => {
-        {
-            if let Some(x) = $cache_copy.fetch_all().await {
-                Protocol::response(&mut $socket, x).await
-            } else {
-                $socket.write_u8(0u8).await.unwrap();
-                Ok(())
-            }
-        }
-    };
-    (
-        Lookup,
-        $model:ty,
-        $cache_copy:expr,
         $socket:expr
     ) => {
         {
             let data = Protocol::read::<_, $model>(&mut $socket).await.unwrap();
-            if let Ok(x) = $cache_copy.lookup(data.0).await {
+            if let Ok(x) = $cache_copy.$func(data).await {
                 Protocol::response(&mut $socket, x).await
-            } else {
-                Err(CachemError::Empty)
-            }
-        }
-    };
-    (
-        Insert,
-        $model:ty,
-        $cache_copy:expr,
-        $socket:expr
-    ) => {
-        {
-            let data = Protocol::read::<_, $model>(&mut $socket).await.unwrap();
-            if let Ok(_) = $cache_copy.insert(data.0).await {
-                Protocol::response(&mut $socket, EmptyResponse::default()).await
             } else {
                 Err(CachemError::Empty)
             }
@@ -64,7 +20,7 @@ macro_rules! cachem {
     (
         $uri:expr,
         $(let $v:ident = $e:expr;)*
-        $(($action:path, $cache:path) => ($marker:ident, $model:path, $cache_copy:ident),)*
+        $(($action:path, $cache:path) => ($cache_copy:ident, $func:ident, $model:path),)*
     ) => {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -94,7 +50,7 @@ macro_rules! cachem {
                     let action = Actions::from(buf[0]);
                     let cache = Caches::from(buf[1]);
                     let x = match (&action, &cache) {
-                        $((&$action, &$cache) => cachem!($marker, $model, $cache_copy, buf_socket),)*
+                        $((&$action, &$cache) => cachem!($cache_copy, $func, $model, buf_socket),)*
                         _ => panic!("Invalid action / cache combination ({:?}, {:?})", action, cache)
                     };
 
@@ -104,4 +60,39 @@ macro_rules! cachem {
             });
         }
     };
+}
+
+#[async_trait::async_trait]
+pub trait Fetch<T: Parse> {
+    type Error;
+    type ReturnType;
+    async fn fetch(&self, input: T) -> Result<Self::ReturnType, Self::Error>;
+}
+
+#[async_trait::async_trait]
+pub trait Lookup<T: Parse> {
+    type Error;
+    type ReturnType;
+    async fn lookup(&self, input: T) -> Result<Self::ReturnType, Self::Error>;
+}
+
+#[async_trait::async_trait]
+pub trait Insert<T: Parse> {
+    type Error;
+    type ReturnType;
+    async fn insert(&self, input: T) -> Result<Self::ReturnType, Self::Error>;
+}
+
+#[async_trait::async_trait]
+pub trait Update<T: Parse> {
+    type Error;
+    type ReturnType;
+    async fn update(&self, input: T) -> Result<Self::ReturnType, Self::Error>;
+}
+
+#[async_trait::async_trait]
+pub trait Delete<T: Parse> {
+    type Error;
+    type ReturnType;
+    async fn delete(&self, input: T) -> Result<Self::ReturnType, Self::Error>;
 }

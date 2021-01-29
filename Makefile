@@ -1,4 +1,4 @@
-.PHONY: sync-virgo
+.PHONY: docs docs-open sync-virgo
 
 docs:
 	cargo doc --no-deps --document-private-items --all-features

@@ -48,8 +48,9 @@ If there is interest in publishing them I will consider it.
 ``` toml
 # Cargo.toml
 
+async-trait = "0.1"
 cachem_utils = { git = "https://github.com/lholznagel/cachem.git", rev = "INSERT_LATEST_GIT_REV", features = ["derive"] }
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.1", features = ["full"] }
 ```
 
 The `cachem_utils` crate contains all needed traits and functions.
@@ -66,6 +67,7 @@ See [main.rs](./example/src/main.rs)
 The following code is an example for a minimal server example.
 
 ``` rust
+use async_trait::async_trait;
 use cachem_utils::*;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -85,12 +87,16 @@ pub struct FetchSampleEntryById(pub u32);
 #[derive(Default)]
 pub struct SampleCache(RwLock<HashMap<u32, SampleEntry>>);
 
-impl SampleCache {
-    pub async fn fetch_by_id(&self, id: u32) -> Option<SampleEntry> {
-        if let Some(x) = self.0.read().await.get(&id) {
-            Some(x.clone())
+#[async_trait]
+impl Fetch<FetchSampleEntryById> for SampleCache {
+    type Error = ();
+    type ReturnType = SampleEntry;
+
+    async fn fetch(&self, input: FetchSampleEntryById) -> Result<Self::ReturnType, ()> {
+        if let Some(x) = self.0.read().await.get(&input.0) {
+            Ok(x.clone())
         } else {
-            None
+            Err(())
         }
     }
 }
@@ -130,7 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let sample_copy = sample_cache.clone();
 
-        (Actions::Fetch, Caches::Sample) => (FetchId, FetchSampleEntryById, sample_copy),
+        (Actions::Fetch, Caches::Sample) => (sample_copy, fetch, FetchSampleEntryById),
     }
 }
 ```
@@ -142,16 +148,34 @@ There are some restrictions
 - From every cache implementation there must be a copy `let sample_copy = sample_cache.clone();`
   - It is recommended to init them as `let sample_cache = Arc::new(SampleCache::default());`
   - Every Cache should either use a `RwLock` or `Mutex`
-- After that all "routes" must be defined
-  - `(Actions::Fetch, Caches::Sample) => (FetchId, FetchSampleEntryById, sample_copy),`
-  - The action defines what action this is, defined in the enum
-  - The cache that should be used, also defined in the num
-  - After that the type of request is defined, currently this is very limited
-    - `FetchId` -> the function `.fetch_by_id(id)` is called
-    - `FetchAll` -> the function `.fetch_all()` is called
-    - `Lookup` -> the function `.lookup(Vec<id>)` is called
-    - `Insert` -> the function `.insert(Vec<Entry>)` is called
-    - All those will expand to macros that handle reading from the tcp socket
+- After that, all "routes" must be defined
+  - `(Actions::Fetch, Caches::Sample) => (cache_copy, function_name, request_type),`
+    - Please see `Example route` for more information
+
+### Example route
+
+The library provides traits for the following actions: `Fetch`, `Lookup`, `Insert`, `Update` and `Delete`.
+You can implement your own traits and call them from a route.
+
+``` rust
+#[async_trait]
+pub trait MyCustomTrait<T: Parse> {
+    async fn call_me(&self, data: T) -> Result<SampleEntry, ()>;
+}
+```
+
+When implementing your own trait it is important that it is an async trait and that it takes `&self` and another parameter.
+That parameter is used to inject the request into the function.
+Besides that a result must be returned.
+The data parameter and the result must both implement `Parse`.
+
+The route configuration in the macro looks something like this:
+
+> `(Actions::Fetch, Caches::Sample) => (cache_copy, function_name, request_type),`.
+
+- The first parameter `cache_copy` is the actual cache that should be used
+- The `function_name` can be anything that the cache implements, it is recommendet to use a trait, so that the function can be implemented mutliple time with data types.
+- The `request_type` is the model that represents the model that comes from the tcp socket.
 
 ## The `Parse` trait
 
@@ -211,6 +235,7 @@ impl Parse for MyCacheEntry {
 
 The `Parse` trait is also implemented for the datatypes `u32`, `u64`, `u128`,
 `f32`, `f64`, `String` and `bool`.
+With the feature `with-uuid` the type `Uuid` also has the `Parse` trait implemented.
 With that models can be easily designed.
 
 #### License
