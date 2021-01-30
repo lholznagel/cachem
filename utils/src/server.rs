@@ -65,34 +65,34 @@ macro_rules! cachem {
 #[async_trait::async_trait]
 pub trait Fetch<T: Parse> {
     type Error;
-    type ReturnType;
-    async fn fetch(&self, input: T) -> Result<Self::ReturnType, Self::Error>;
+    type Response;
+    async fn fetch(&self, input: T) -> Result<Self::Response, Self::Error>;
 }
 
 #[async_trait::async_trait]
 pub trait Lookup<T: Parse> {
     type Error;
-    type ReturnType;
-    async fn lookup(&self, input: T) -> Result<Self::ReturnType, Self::Error>;
+    type Response;
+    async fn lookup(&self, input: T) -> Result<Self::Response, Self::Error>;
 }
 
 #[async_trait::async_trait]
 pub trait Insert<T: Parse> {
     type Error;
-    type ReturnType;
-    async fn insert(&self, input: T) -> Result<Self::ReturnType, Self::Error>;
+    type Response;
+    async fn insert(&self, input: T) -> Result<Self::Response, Self::Error>;
 }
 
 #[async_trait::async_trait]
 pub trait Update<T: Parse> {
     type Error;
-    type ReturnType;
-    async fn update(&self, input: T) -> Result<Self::ReturnType, Self::Error>;
+    type Response;
+    async fn update(&self, input: T) -> Result<Self::Response, Self::Error>;
 }
 
 #[async_trait::async_trait]
 pub trait Delete<T: Parse> {
     type Error;
-    type ReturnType;
-    async fn delete(&self, input: T) -> Result<Self::ReturnType, Self::Error>;
+    type Response;
+    async fn delete(&self, input: T) -> Result<Self::Response, Self::Error>;
 }

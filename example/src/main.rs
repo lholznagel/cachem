@@ -23,9 +23,9 @@ pub struct SampleCache(RwLock<HashMap<u32, SampleEntry>>);
 #[async_trait]
 impl Fetch<FetchSampleEntryById> for SampleCache {
     type Error = ();
-    type ReturnType = SampleEntry;
+    type Response = SampleEntry;
 
-    async fn fetch(&self, input: FetchSampleEntryById) -> Result<Self::ReturnType, ()> {
+    async fn fetch(&self, input: FetchSampleEntryById) -> Result<Self::Response, ()> {
         if let Some(x) = self.0.read().await.get(&input.0) {
             Ok(x.clone())
         } else {
