@@ -1,9 +1,9 @@
-use std::collections::VecDeque;
-use std::sync::Arc;
+use std::ops::DerefMut;
+use std::{collections::VecDeque, ops::Deref};
+use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::io::BufStream;
 use tokio::net::TcpStream;
-use tokio::sync::Mutex;
 use tokio::time::{Duration, sleep};
 
 use crate::CachemConnectionPoolError;
@@ -112,7 +112,7 @@ impl ConnectionPool {
 
     /// This function will try to acquire a connection within 5 seconds.
     /// If no connection could be acquired in this time an error returned.
-    pub async fn acquire(&self) -> Result<Connection, CachemConnectionPoolError> {
+    pub async fn acquire(&self) -> Result<ConnectionGuard, CachemConnectionPoolError> {
         let sleep = sleep(Duration::from_secs(Self::ACQUIRE_TIMEOUT));
         tokio::pin!(sleep);
 
@@ -130,25 +130,22 @@ impl ConnectionPool {
 
     /// Tries to acquire a connection from the pool, if non is available an
     /// error is returned
-    pub async fn try_acquire(&self) -> Result<Connection, CachemConnectionPoolError> {
+    pub async fn try_acquire(&self) -> Result<ConnectionGuard, CachemConnectionPoolError> {
         // Before locking the connections mutex, check if there are connections
         // available, if not return an error
         if self.available.load(Ordering::SeqCst) == 0 {
             return Err(CachemConnectionPoolError::NoConnectionAvailable);
         }
 
-        if let Some(conn) = self.connections.lock().await.pop_front() {
+        if let Some(conn) = self.connections.lock().unwrap().pop_front() {
             self.available.fetch_sub(1, Ordering::SeqCst);
-            Ok(conn)
+            Ok(ConnectionGuard {
+                pool: self.clone(),
+                connection: Some(conn),
+            })
         } else {
             Err(CachemConnectionPoolError::NoConnectionAvailable)
         }
-    }
-
-    /// Releases a connection back into the connection pool
-    pub async fn release(&self, connection: Connection) {
-        self.connections.lock().await.push_back(connection);
-        self.available.fetch_add(1, Ordering::SeqCst);
     }
 
     /// Adds the given amount of connections to the pool
@@ -177,6 +174,12 @@ impl ConnectionPool {
         }
     }
 
+    /// Releases a connection back into the connection pool
+    pub(crate) fn release(&self, connection: Connection) {
+        self.connections.lock().unwrap().push_back(connection);
+        self.available.fetch_add(1, Ordering::SeqCst);
+    }
+
     /// Fills the internal connection pool with the given amount of connections
     async fn connect(&self, count: usize) -> Result<(), CachemConnectionPoolError> {
         let mut connections = VecDeque::new();
@@ -186,16 +189,45 @@ impl ConnectionPool {
                 .map_err(|_| CachemConnectionPoolError::CannotConnect)?;
             connections.push_back(Connection::new(stream));
         }
-        self.connections.lock().await.extend(connections);
+        self.connections.lock().unwrap().extend(connections);
         Ok(())
     }
 
     /// Drops the given amount of connections
     async fn drop(&self, count: usize) -> Result<(), CachemConnectionPoolError> {
-        let mut connections = self.connections.lock().await;
+        let mut connections = self.connections.lock().unwrap();
         for _ in 0..count {
             std::mem::drop(connections.pop_front());
         }
         Ok(())
+    }
+}
+
+/// This guard wrappes a connection from the pool.
+///
+/// When the guard is dropped, the connection is returned to the connectiton
+/// pool and can be used for further usage
+pub struct ConnectionGuard {
+    pool: ConnectionPool,
+    connection: Option<Connection>,
+}
+
+impl Drop for ConnectionGuard {
+    fn drop(&mut self) {
+        self.pool.release(self.connection.take().unwrap());
+    }
+}
+
+impl Deref for ConnectionGuard {
+    type Target = Connection;
+
+    fn deref(&self) -> &Self::Target {
+        &self.connection.as_ref().unwrap()
+    }
+}
+
+impl DerefMut for ConnectionGuard {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.connection.as_mut().unwrap()
     }
 }
