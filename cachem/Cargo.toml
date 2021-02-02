@@ -1,9 +1,8 @@
 [package]
-name = "cachem_utils"
-version = "0.0.0"
-authors = ["David Tolnay <dtolnay@gmail.com>"]
+name = "cachem"
+version = "0.1.0"
+authors = ["Lars Holznagel <contact@lholznagel.info>"]
 edition = "2018"
-publish = false
 
 [dependencies]
 async-trait = "0.1.42"

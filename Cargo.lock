@@ -24,8 +24,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b700ce4376041dcd0a327fd0097c41095743c4c8af8887265942faf1100bd040"
 
 [[package]]
+name = "cachem"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "cachem_derive",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "cachem_derive"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
  "proc-macro2",
@@ -36,21 +46,11 @@ dependencies = [
 
 [[package]]
 name = "cachem_example"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "async-trait",
- "cachem_utils",
+ "cachem",
  "tokio",
-]
-
-[[package]]
-name = "cachem_utils"
-version = "0.0.0"
-dependencies = [
- "async-trait",
- "cachem_derive",
- "tokio",
- "uuid",
 ]
 
 [[package]]

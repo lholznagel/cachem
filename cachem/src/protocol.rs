@@ -12,22 +12,40 @@ use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 ///
 /// ## Example sending a message to the database
 /// ```no_run
-/// # use carina::*;
-/// # use carina::caches::*;
+/// # use async_trait::*;
+/// # use cachem_utils::*;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let pool = ConnectionPool::new(1).await?;
 /// let mut conn = pool.acquire().await?;
+///
+/// #[derive(Debug, Parse)]
+/// struct FetchById(u32);
+/// 
+/// #[async_trait]
+/// impl ProtocolRequest for FetchById {
+///     fn action(&self) -> u8 {
+///         0u8
+///     }
+/// 
+///     fn cache(&self) -> u8 {
+///         0u8
+///     }
+/// }
+/// 
+/// #[derive(Debug, Parse)]
+/// struct IdEntry {
+///     pub id: u32,
+///     pub val: u32,
+/// }
 /// 
 /// // Creates a new request to fetch an entry from the "Names" Cache by id
 /// // The result of that request will be parsed into the "NameEntry" struct.
-/// let response = Protocol::request::<_, NameEntry>(
+/// let response = Protocol::request::<_, IdEntry>(
 ///     &mut conn,
-///     FetchNameEntryById(18u32)
+///     FetchById(18u32)
 /// )
 /// .await?;
-///
-/// pool.release(conn).await;
 /// # Ok(())
 /// # }
 pub struct Protocol;
@@ -62,7 +80,7 @@ impl Protocol {
         R: Parse {
 
         buf.write_u8(data.action().into()).await?;
-        buf.write_u8(data.cache_type().into()).await?;
+        buf.write_u8(data.cache().into()).await?;
         data.write(buf).await?;
         buf.flush().await?;
 
@@ -101,34 +119,33 @@ impl Protocol {
 /// ## Implementation example:
 /// ```
 /// # use async_trait::*;
-/// # use carina::*;
-/// # use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+/// # use cachem_utils::*;
+/// # use tokio::io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// #[derive(Debug)]
-/// pub struct ExampleImplementation(Vec<u8>);
+/// pub struct ExampleImplementation(pub u32);
 /// 
 /// #[async_trait]
 /// impl Parse for ExampleImplementation {
-///     async fn parse<B>(
-///         mut data: B
-///     ) -> Result<S, CachemErrorelf>
-///         where
-///             B: AsyncRead + Send + Unpin {
+///     async fn read<B>(
+///         buf: &mut B,
+///     ) -> Result<Self, CachemError>
+///     where
+///         B: AsyncBufRead + AsyncRead + Send + Unpin {
 /// 
-///         let mut buf = Vec::new();
-///         data.read_buf(&mut buf).await?;
-///         Ok(Self(buf))
+///         let x = buf.read_u32().await?;
+///         Ok(Self(x))
 ///     }
 ///
 ///     async fn write<B>(
 ///         &self,
 ///         buf: &mut B,
-///     ) -> Result<(, CachemError)>
+///     ) -> Result<(), CachemError>
 ///         where
 ///             B: AsyncWrite + Send + Unpin {
 ///
-///         buf.write_all(&self.0).await?;
+///         buf.write_u32(self.0).await?;
 ///         Ok(())
 ///     }
 /// }
@@ -141,14 +158,14 @@ pub trait Parse: Sized {
     /// An implementor should read the given buffer and parse that data into the
     /// implementing struct
     async fn read<B>(
-        buf: &mut B
+        buf: &mut B,
     ) -> Result<Self, CachemError>
     where
         B: AsyncBufRead + AsyncRead + Send + Unpin;
 
     async fn write<B>(
         &self,
-        buf: &mut B
+        buf: &mut B,
     ) -> Result<(), CachemError>
     where
         B: AsyncWrite + Send + Unpin;
@@ -157,50 +174,47 @@ pub trait Parse: Sized {
 /// Provides functions that are needed in order to send a request from the 
 /// driver to the database
 ///
-/// Requires that [`Parse`] is implemented
+/// Requires that [`Parse`] is implemented. In this example the trait is implemented
+/// using the derive proc macro.
 ///
 /// ## Implementation example:
 /// ```
 /// # use async_trait::*;
-/// # use carina::*;
-/// # use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+/// # use cachem_utils::*;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// #[derive(Debug)]
-/// pub struct ExampleImplementation(Vec<u8>);
 /// 
-/// #[async_trait]
-/// impl Parse for ExampleImplementation {
-///     async fn parse<B>(
-///         mut data: B
-///     ) -> Result<S, CachemErrorelf>
-///         where
-///             B: AsyncRead + Send + Unpin {
-/// 
-///         let mut buf = Vec::new();
-///         data.read_buf(&mut buf).await?;
-///         Ok(Self(buf))
+/// pub enum Actions {
+///     Fetch
+/// }
+///
+/// impl Into<u8> for Actions {
+///     fn into(self) -> u8 {
+///         0u8
 ///     }
 /// }
 /// 
+/// pub enum Caches {
+///     Example
+/// }
+///
+/// impl Into<u8> for Caches {
+///     fn into(self) -> u8 {
+///         0u8
+///     }
+/// }
+/// 
+/// #[derive(Debug, Parse)]
+/// pub struct ExampleImplementation(Vec<u8>);
+///
 /// #[async_trait]
 /// impl ProtocolRequest for ExampleImplementation {
-///     fn action(&self) -> Action {
-///         Action::Fetch
+///     fn action(&self) -> u8 {
+///         Actions::Fetch.into()
 ///     }
 /// 
-///     fn cache_type(&self) -> CacheType {
-///         CacheType::IdName
-///     }
-/// 
-///     async fn write<B>(
-///         self,
-///         buf: &mut B
-///     ) -> Result<(, CachemError)>
-///         where B: AsyncWrite + Unpin + Send {
-/// 
-///         buf.write_all(&self.0).await?;
-///         Ok(())
+///     fn cache(&self) -> u8 {
+///         Caches::Example.into()
 ///     }
 /// }
 /// # Ok(())
@@ -212,5 +226,5 @@ pub trait ProtocolRequest {
     fn action(&self) -> u8;
 
     /// Determines what type of cache should be used
-    fn cache_type(&self) -> u8;
+    fn cache(&self) -> u8;
 }

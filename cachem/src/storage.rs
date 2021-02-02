@@ -8,6 +8,7 @@ use crate::CachemError;
 ///
 /// ```
 /// # use async_trait::*;
+/// # use cachem_utils::*;
 /// # use std::sync::Arc;
 ///
 /// # #[tokio::main]
@@ -17,7 +18,7 @@ use crate::CachemError;
 /// 
 /// #[async_trait]
 /// impl Save for MyCache {
-///     async fn store(&self) -> CacheResult<()> {
+///     async fn store(&self) -> Result<(), CachemError> {
 ///         // let mut buf = Cursor::new();
 ///         // ... write the content of the cache into the buffer
 ///         // save the file
@@ -27,7 +28,7 @@ use crate::CachemError;
 /// }
 ///
 /// // Create a new StorageHandler instance
-/// let mut storage = cachem::StorageHandler::default();
+/// let mut storage = StorageHandler::default();
 /// // Register our cache
 /// storage.register(Arc::new(MyCache::default()));
 /// // Spawn a seperate task, so that the main thread is not blocked

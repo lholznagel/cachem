@@ -19,10 +19,10 @@ pub fn derive_heap_size(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
     let expanded = quote! {
         #[async_trait::async_trait]
-        impl #impl_generics cachem_utils::Parse for #name #ty_generics #where_clause {
+        impl #impl_generics cachem::Parse for #name #ty_generics #where_clause {
             async fn read<B>(
                 buf: &mut B
-            ) -> Result<Self, cachem_utils::CachemError>
+            ) -> Result<Self, cachem::CachemError>
             where
                 B: tokio::io::AsyncBufRead + tokio::io::AsyncRead + Send + Unpin {
 
@@ -32,7 +32,7 @@ pub fn derive_heap_size(input: proc_macro::TokenStream) -> proc_macro::TokenStre
             async fn write<B>(
                 &self,
                 buf: &mut B
-            ) -> Result<(), cachem_utils::CachemError>
+            ) -> Result<(), cachem::CachemError>
             where
                 B: tokio::io::AsyncWrite + Send + Unpin {
 

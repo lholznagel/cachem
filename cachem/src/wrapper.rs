@@ -4,6 +4,52 @@ use async_trait::async_trait;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 #[async_trait]
+impl Parse for u8 {
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        Ok(buf.read_u8().await?)
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_u8(*self).await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Parse for u16 {
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        Ok(buf.read_u16().await?)
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_u16(*self).await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
 impl Parse for u32 {
     async fn read<B>(
         buf: &mut B

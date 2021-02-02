@@ -3,6 +3,7 @@ pub enum CachemError {
     Empty,
     IoError(std::io::Error),
     StringParseError(std::string::FromUtf8Error),
+    ConnectionPoolError(ConnectionPoolError),
 }
 impl std::error::Error for CachemError {}
 
@@ -24,9 +25,8 @@ impl From<std::string::FromUtf8Error> for CachemError {
     }
 }
 
-/// All errors that can be thrown by the connection pool
 #[derive(Debug)]
-pub enum CachemConnectionPoolError {
+pub enum ConnectionPoolError {
     /// The pool is currently empty
     NoConnectionAvailable,
     /// Connecting to the remote server did not work
@@ -35,12 +35,6 @@ pub enum CachemConnectionPoolError {
     NotEnoughConnectionsInPool,
     /// There are not enough connection available to scale down
     NotEnoughConnectionsAvailable,
+    /// There was no connection available in the timeout
     TimeoutGettingConnection,
-}
-impl std::error::Error for CachemConnectionPoolError {}
-
-impl std::fmt::Display for CachemConnectionPoolError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }

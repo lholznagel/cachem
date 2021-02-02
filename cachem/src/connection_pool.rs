@@ -6,7 +6,7 @@ use tokio::io::BufStream;
 use tokio::net::TcpStream;
 use tokio::time::{Duration, sleep};
 
-use crate::CachemConnectionPoolError;
+use crate::{CachemError, ConnectionPoolError};
 
 /// Wrapper for an [`tokio::net::TcpStream`] in a [`tokio::io::BufStream`].
 /// This is returned when a connection from the [`crate::ConnectionPool`] is requested.
@@ -36,18 +36,17 @@ impl Connection {
 ///
 /// ## Example:
 /// ```no_run
-/// # use carina::*;
+/// # use cachem_utils::*;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // creates a new pool with one connection
-/// let pool = ConnectionPool::new(1).await?;
+/// let pool = ConnectionPool::new(1usize).await?;
 /// // get a connection
 /// let mut conn = pool.acquire().await?;
 ///
 /// // ... do something with the connection ...
 ///
-/// // return the connection
-/// pool.release(conn).await;
+/// // the connection is dropped and returned to the pool
 /// # Ok(())
 /// # }
 /// ```
@@ -59,11 +58,11 @@ impl Connection {
 ///
 /// ## Example:
 /// ```no_run
-/// # use carina::*;
+/// # use cachem_utils::*;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // creates a new pool with one connection
-/// let pool = ConnectionPool::new(2).await?;
+/// let pool = ConnectionPool::new(2usize).await?;
 /// // gets the number of connections that can be acquired
 /// // this should be 2
 /// let count = pool.available_connections();
@@ -87,6 +86,7 @@ pub struct ConnectionPool {
     pool_size: Arc<AtomicUsize>,
     /// All connections that are currently available
     connections: Arc<Mutex<VecDeque<Connection>>>,
+    url: String
 }
 
 impl ConnectionPool {
@@ -95,11 +95,12 @@ impl ConnectionPool {
     /// Creates a new pool. The given number is the number of connections the
     /// pool will hold. The returned pool is already filled with connections
     /// and can be used.
-    pub async fn new(count: usize) -> Result<Self, CachemConnectionPoolError> {
+    pub async fn new(url: String, count: usize) -> Result<Self, CachemError> {
         let pool = Self {
             available: Arc::new(AtomicUsize::new(count)),
             pool_size: Arc::new(AtomicUsize::new(count)),
             connections: Arc::new(Mutex::new(VecDeque::new())),
+            url
         };
         pool.connect(count).await?;
         Ok(pool)
@@ -112,14 +113,14 @@ impl ConnectionPool {
 
     /// This function will try to acquire a connection within 5 seconds.
     /// If no connection could be acquired in this time an error returned.
-    pub async fn acquire(&self) -> Result<ConnectionGuard, CachemConnectionPoolError> {
+    pub async fn acquire(&self) -> Result<ConnectionGuard, CachemError> {
         let sleep = sleep(Duration::from_secs(Self::ACQUIRE_TIMEOUT));
         tokio::pin!(sleep);
 
         loop {
             tokio::select! {
                 _ = &mut sleep => {
-                    return Err(CachemConnectionPoolError::TimeoutGettingConnection);
+                    return Err(CachemError::ConnectionPoolError(ConnectionPoolError::TimeoutGettingConnection));
                 }
                 c = self.try_acquire() => {
                     return c;
@@ -130,11 +131,11 @@ impl ConnectionPool {
 
     /// Tries to acquire a connection from the pool, if non is available an
     /// error is returned
-    pub async fn try_acquire(&self) -> Result<ConnectionGuard, CachemConnectionPoolError> {
+    pub async fn try_acquire(&self) -> Result<ConnectionGuard, CachemError> {
         // Before locking the connections mutex, check if there are connections
         // available, if not return an error
         if self.available.load(Ordering::SeqCst) == 0 {
-            return Err(CachemConnectionPoolError::NoConnectionAvailable);
+            return Err(CachemError::ConnectionPoolError(ConnectionPoolError::NoConnectionAvailable));
         }
 
         if let Some(conn) = self.connections.lock().unwrap().pop_front() {
@@ -144,12 +145,12 @@ impl ConnectionPool {
                 connection: Some(conn),
             })
         } else {
-            Err(CachemConnectionPoolError::NoConnectionAvailable)
+            Err(CachemError::ConnectionPoolError(ConnectionPoolError::NoConnectionAvailable))
         }
     }
 
     /// Adds the given amount of connections to the pool
-    pub async fn scale_up(&self, count: usize) -> Result<(), CachemConnectionPoolError> {
+    pub async fn scale_up(&self, count: usize) -> Result<(), CachemError> {
         self.connect(count).await?;
         // increase pool count and make the new connections available
         self.pool_size.fetch_add(count, Ordering::SeqCst);
@@ -160,11 +161,11 @@ impl ConnectionPool {
     /// Removes the given amount of connections from the pool.
     /// Fails if there are not enough connections to scale down or not enough
     /// connections are available
-    pub async fn scale_down(&self, count: usize) -> Result<(), CachemConnectionPoolError> {
+    pub async fn scale_down(&self, count: usize) -> Result<(), CachemError> {
         if self.pool_size.load(Ordering::SeqCst) < count {
-            Err(CachemConnectionPoolError::NotEnoughConnectionsInPool)
+            Err(CachemError::ConnectionPoolError(ConnectionPoolError::NotEnoughConnectionsInPool))
         } else if self.available.load(Ordering::SeqCst) < count {
-            Err(CachemConnectionPoolError::NotEnoughConnectionsAvailable)
+            Err(CachemError::ConnectionPoolError(ConnectionPoolError::NotEnoughConnectionsAvailable))
         } else {
             // dencrease pool count and remove the connections
             self.pool_size.fetch_sub(count, Ordering::SeqCst);
@@ -181,12 +182,12 @@ impl ConnectionPool {
     }
 
     /// Fills the internal connection pool with the given amount of connections
-    async fn connect(&self, count: usize) -> Result<(), CachemConnectionPoolError> {
+    async fn connect(&self, count: usize) -> Result<(), CachemError> {
         let mut connections = VecDeque::new();
         for _ in 0..count {
-            let stream = TcpStream::connect("0.0.0.0:9999")
+            let stream = TcpStream::connect(&self.url)
                 .await
-                .map_err(|_| CachemConnectionPoolError::CannotConnect)?;
+                .map_err(|_| CachemError::ConnectionPoolError(ConnectionPoolError::CannotConnect))?;
             connections.push_back(Connection::new(stream));
         }
         self.connections.lock().unwrap().extend(connections);
@@ -194,7 +195,7 @@ impl ConnectionPool {
     }
 
     /// Drops the given amount of connections
-    async fn drop(&self, count: usize) -> Result<(), CachemConnectionPoolError> {
+    async fn drop(&self, count: usize) -> Result<(), CachemError> {
         let mut connections = self.connections.lock().unwrap();
         for _ in 0..count {
             std::mem::drop(connections.pop_front());

@@ -1,10 +1,10 @@
 [package]
 name = "cachem_example"
-version = "0.0.0"
+authors = ["Lars Holznagel <contact@lholznagel.info>"]
+version = "0.1.0"
 edition = "2018"
-publish = false
 
 [dependencies]
 async-trait = "0.1.42"
-cachem_utils = { path = "../utils", features = ["derive", "with-uuid"] }
+cachem = { path = "../cachem", features = ["derive", "with-uuid"] }
 tokio = { version = "1.1.1", features = ["full"] }
