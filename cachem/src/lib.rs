@@ -1,5 +1,6 @@
 mod connection_pool;
 mod error;
+mod file;
 mod protocol;
 mod server;
 mod storage;
@@ -7,6 +8,7 @@ mod wrapper;
 
 pub use self::connection_pool::*;
 pub use self::error::*;
+pub use self::file::*;
 pub use self::protocol::*;
 pub use self::server::*;
 pub use self::storage::*;
