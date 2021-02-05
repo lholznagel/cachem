@@ -1,6 +1,8 @@
 mod sample_structs;
 
-use async_trait::async_trait;
+fn main() {}
+
+/*use async_trait::async_trait;
 use cachem::*;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -72,3 +74,4 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         (Actions::Fetch, Caches::Sample) => (sample_copy, fetch, FetchSampleEntryById),
     }
 }
+*/
