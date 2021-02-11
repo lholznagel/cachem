@@ -1,7 +1,7 @@
 use crate::{CachemError, Parse};
 
 use async_trait::async_trait;
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncBufReadExt, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 #[async_trait]
 impl Parse for u8 {
@@ -178,7 +178,14 @@ impl Parse for String {
         B: AsyncBufRead + AsyncRead + Send + Unpin {
 
         let mut val = Vec::new();
-        buf.read_until(0u8, &mut val).await?;
+        let read = buf.read_until(0u8, &mut val).await?;
+
+        // Remove the trailing 0 byte
+        let val = if read > 0 {
+            val[0..read - 1].to_vec()
+        } else {
+            val
+        };
         Ok(String::from_utf8(val)?)
     }
 

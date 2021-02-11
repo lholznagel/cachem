@@ -36,11 +36,11 @@ impl Connection {
 ///
 /// ## Example:
 /// ```no_run
-/// # use cachem_utils::*;
+/// # use cachem::*;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // creates a new pool with one connection
-/// let pool = ConnectionPool::new(1usize).await?;
+/// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1usize).await?;
 /// // get a connection
 /// let mut conn = pool.acquire().await?;
 ///
@@ -58,11 +58,11 @@ impl Connection {
 ///
 /// ## Example:
 /// ```no_run
-/// # use cachem_utils::*;
+/// # use cachem::*;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // creates a new pool with one connection
-/// let pool = ConnectionPool::new(2usize).await?;
+/// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 2usize).await?;
 /// // gets the number of connections that can be acquired
 /// // this should be 2
 /// let count = pool.available_connections();

@@ -4,41 +4,7 @@ use tokio::signal::unix::{SignalKind, signal};
 
 use crate::CachemError;
 
-/// Support struct for saving the content of caches
-///
-/// ```
-/// # use async_trait::*;
-/// # use cachem_utils::*;
-/// # use std::sync::Arc;
-///
-/// # #[tokio::main]
-/// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// #[derive(Default)]
-/// pub struct MyCache;
-/// 
-/// #[async_trait]
-/// impl Save for MyCache {
-///     async fn store(&self) -> Result<(), CachemError> {
-///         // let mut buf = Cursor::new();
-///         // ... write the content of the cache into the buffer
-///         // save the file
-///         // FileUtils::save("my_file", buf).await?;
-///         Ok(())
-///     }
-/// }
-///
-/// // Create a new StorageHandler instance
-/// let mut storage = StorageHandler::default();
-/// // Register our cache
-/// storage.register(Arc::new(MyCache::default()));
-/// // Spawn a seperate task, so that the main thread is not blocked
-/// tokio::task::spawn(async move {
-///     storage.save_on_interrupt().await;
-/// });
-///
-/// # Ok(())
-/// # }
-/// ```
+#[deprecated]
 #[derive(Clone, Default)]
 pub struct StorageHandler {
     registered: Vec<Arc<dyn Save + Send + Sync>>
@@ -82,3 +48,16 @@ impl StorageHandler {
 pub trait Save {
     async fn store(&self) -> Result<(), CachemError>;
 }
+
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
+#[async_trait]
+pub trait Storage: Sized {
+    async fn file() -> &'static str;
+
+    async fn load<B>(buf: &mut B) -> Result<Self, CachemError> 
+        where B: AsyncBufRead + AsyncRead + Send + Unpin;
+
+    async fn save<B>(&self, buf: &mut B) -> Result<(), CachemError>
+        where B: AsyncWrite + Send + Unpin;
+}
+

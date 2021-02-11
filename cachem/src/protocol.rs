@@ -13,10 +13,10 @@ use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 /// ## Example sending a message to the database
 /// ```no_run
 /// # use async_trait::*;
-/// # use cachem_utils::*;
+/// # use cachem::*;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let pool = ConnectionPool::new(1).await?;
+/// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1).await?;
 /// let mut conn = pool.acquire().await?;
 ///
 /// #[derive(Debug, Parse)]
@@ -119,7 +119,7 @@ impl Protocol {
 /// ## Implementation example:
 /// ```
 /// # use async_trait::*;
-/// # use cachem_utils::*;
+/// # use cachem::*;
 /// # use tokio::io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -180,7 +180,7 @@ pub trait Parse: Sized {
 /// ## Implementation example:
 /// ```
 /// # use async_trait::*;
-/// # use cachem_utils::*;
+/// # use cachem::*;
 /// # #[tokio::main]
 /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// 

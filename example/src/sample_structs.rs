@@ -1,5 +1,4 @@
 use cachem::*;
-use std::collections::HashSet;
 
 #[derive(Default, Parse)]
 struct Demo {
@@ -20,9 +19,6 @@ struct Demo3(pub u32);
 
 #[derive(Default, Parse)]
 struct Demo4;
-
-#[derive(Parse)]
-struct Demo5(HashSet<u32>);
 
 #[derive(Parse)]
 struct Demo6 {
