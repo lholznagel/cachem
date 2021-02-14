@@ -62,6 +62,7 @@ macro_rules! cachem {
     };
 }
 
+/// <T> describe the requesting model, for example a filter
 #[async_trait::async_trait]
 pub trait Fetch<T: Parse> {
     type Error;

@@ -117,14 +117,12 @@ impl ConnectionPool {
         let sleep = sleep(Duration::from_secs(Self::ACQUIRE_TIMEOUT));
         tokio::pin!(sleep);
 
-        loop {
-            tokio::select! {
-                _ = &mut sleep => {
-                    return Err(CachemError::ConnectionPoolError(ConnectionPoolError::TimeoutGettingConnection));
-                }
-                c = self.try_acquire() => {
-                    return c;
-                }
+        tokio::select! {
+            _ = &mut sleep => {
+                return Err(CachemError::ConnectionPoolError(ConnectionPoolError::TimeoutGettingConnection));
+            }
+            c = self.try_acquire() => {
+                return c;
             }
         }
     }

@@ -1,63 +1,46 @@
-use async_trait::async_trait;
-use std::sync::Arc;
-use tokio::signal::unix::{SignalKind, signal};
-
 use crate::CachemError;
 
-#[deprecated]
-#[derive(Clone, Default)]
-pub struct StorageHandler {
-    registered: Vec<Arc<dyn Save + Send + Sync>>
-}
+use async_trait::async_trait;
+use tokio::fs::OpenOptions;
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, BufStream};
 
-impl StorageHandler {
-    /// Registers a new cache to be handled
-    /// The cache must implement the [Save] trait.
-    pub fn register(&mut self, save: Arc<dyn Save + Send + Sync>) {
-        self.registered.push(save)
-    }
-
-    /// Saves all registered caches when an SIGINT is received.
-    /// All errors that occur during saving are ignored.
-    ///
-    /// NOTE:
-    /// This function is blocking when calling `.await`.
-    /// It is recommended to spawn a seperate task.
-    /// See the struct example for more information.
-    pub async fn save_on_interrupt(&self) {
-        // Register a signal for a SIGINT
-        signal(SignalKind::interrupt())
-            .expect("Creating a signal listener should be successful")
-            .recv()
-            .await;
-
-        // iterate over all registered caches and call there store function
-        for cache in self.registered.iter() {
-            let _ = cache.store().await;
-        }
-
-        // cleanly exit the application
-        std::process::exit(0);
-    }
-}
-
-/// Trait for saving the current cache to a file.
-/// This trait can be used in combination with [StorageHandler] for an easy
-/// way to save the cacehs on SIGINT.
-#[async_trait]
-pub trait Save {
-    async fn store(&self) -> Result<(), CachemError>;
-}
-
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
 #[async_trait]
 pub trait Storage: Sized {
-    async fn file() -> &'static str;
+    /// Returns the filename
+    fn file() -> &'static str;
 
+    /// Loads the cache from the given buffer
     async fn load<B>(buf: &mut B) -> Result<Self, CachemError> 
         where B: AsyncBufRead + AsyncRead + Send + Unpin;
 
+    /// Saves the current cache to the buffer
     async fn save<B>(&self, buf: &mut B) -> Result<(), CachemError>
         where B: AsyncWrite + Send + Unpin;
+
+    /// Loads a cache from file. Uses [Storage::load] internally.
+    async fn load_from_file() -> Result<Self, CachemError> {
+        let file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(Self::file())
+            .await?;
+        let mut buf = BufStream::new(file);
+        Self::load(&mut buf).await
+    }
+
+    /// Saves the current cache to file. Uses [Storage::save] internally.
+    async fn save_to_file(&self) -> Result<(), CachemError> {
+        let file = OpenOptions::new()
+            .create(true)
+            .read(true)
+            .write(true)
+            .open(Self::file())
+            .await?;
+        let mut buf = BufStream::new(file);
+        self.save(&mut buf).await?;
+
+        Ok(())
+    }
 }
 

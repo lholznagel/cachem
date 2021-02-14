@@ -31,14 +31,19 @@ impl FileUtils {
             .open(path)
             .await?;
 
+        let file_size = std::fs::metadata(path)?.len();
         let mut buf = BufStream::new(file);
 
-        let length = u32::read(&mut buf).await?;
-        let mut result = Vec::with_capacity(length as usize);
-        for _ in 0..length {
-            result.push(R::read(&mut buf).await?)
+        if file_size > 0 {
+            let length = u32::read(&mut buf).await?;
+            let mut result = Vec::with_capacity(length as usize);
+            for _ in 0..length {
+                result.push(R::read(&mut buf).await?)
+            }
+            Ok(result)
+        } else {
+            Ok(Vec::new())
         }
-        Ok(result)
     }
 
     /// Writes the internal buffer to the file, clears the buffer and flushes
