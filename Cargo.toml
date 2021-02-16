@@ -1,6 +1,6 @@
 [workspace]
 members = [
   "cachem",
+  "derive",
   "example",
-  "derive"
 ]

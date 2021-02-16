@@ -184,7 +184,7 @@ pub fn generate_fn_write_code(struct_name: &Ident, data: &Data) -> TokenStream {
                                     }
                                 } else {
                                     quote! {
-                                        self.write(buf).await?;
+                                        self.0.write(buf).await?;
                                     }
                                 }
                             },

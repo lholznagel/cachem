@@ -15,3 +15,4 @@ syn = { version = "1.0", features = ["extra-traits", "full"] }
 [dev-dependencies]
 async-trait = "0.1.42"
 tokio = { version = "1.1.1", features = ["full"] }
+trybuild = "1.0.41"

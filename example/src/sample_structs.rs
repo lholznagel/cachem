@@ -30,6 +30,9 @@ struct Demo6 {
 #[derive(Parse)]
 struct Demo7(pub u32);
 
+#[derive(Parse)]
+struct Demo8(pub Demo7);
+
 enum Actions {
     A
 }

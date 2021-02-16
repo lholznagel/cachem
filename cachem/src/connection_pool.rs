@@ -86,7 +86,7 @@ pub struct ConnectionPool {
     pool_size: Arc<AtomicUsize>,
     /// All connections that are currently available
     connections: Arc<Mutex<VecDeque<Connection>>>,
-    url: String
+    url: &'static str
 }
 
 impl ConnectionPool {
@@ -95,7 +95,7 @@ impl ConnectionPool {
     /// Creates a new pool. The given number is the number of connections the
     /// pool will hold. The returned pool is already filled with connections
     /// and can be used.
-    pub async fn new(url: String, count: usize) -> Result<Self, CachemError> {
+    pub async fn new(url: &'static str, count: usize) -> Result<Self, CachemError> {
         let pool = Self {
             available: Arc::new(AtomicUsize::new(count)),
             pool_size: Arc::new(AtomicUsize::new(count)),
