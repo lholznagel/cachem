@@ -1,7 +1,7 @@
 use crate::CachemError;
 
 use async_trait::async_trait;
-use tokio::fs::OpenOptions;
+use tokio::{fs::OpenOptions, io::AsyncWriteExt};
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, BufStream};
 
 #[async_trait]
@@ -39,6 +39,7 @@ pub trait Storage: Sized {
             .await?;
         let mut buf = BufStream::new(file);
         self.save(&mut buf).await?;
+        buf.flush().await?;
 
         Ok(())
     }

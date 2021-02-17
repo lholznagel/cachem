@@ -14,6 +14,9 @@ pub struct SampleEntry {
     pub val_3: u64,
 }
 
+#[derive(Default, Parse)]
+pub struct EmptyEntry;
+
 #[derive(Debug, Parse)]
 pub struct FetchSampleEntryById(pub u32);
 
@@ -22,14 +25,14 @@ pub struct SampleCache(RwLock<HashMap<u32, SampleEntry>>);
 
 #[async_trait]
 impl Fetch<FetchSampleEntryById> for SampleCache {
-    type Error = ();
+    type Error    = EmptyEntry;
     type Response = SampleEntry;
 
-    async fn fetch(&self, input: FetchSampleEntryById) -> Result<Self::Response, ()> {
+    async fn fetch(&self, input: FetchSampleEntryById) -> Result<Self::Response, Self::Error> {
         if let Some(x) = self.0.read().await.get(&input.0) {
             Ok(x.clone())
         } else {
-            Err(())
+            Err(EmptyEntry::default())
         }
     }
 }
@@ -42,23 +45,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     enum Actions {
         Fetch
     }
-    impl From<u8> for Actions {
-        fn from(x: u8) -> Self {
+    impl From<u16> for Actions {
+        fn from(x: u16) -> Self {
             match x {
                 0 => Actions::Fetch,
-                _ => panic!("Invalid action")
-            }
-        }
-    }
-
-    #[derive(Debug)]
-    enum Caches {
-        Sample
-    }
-    impl From<u8> for Caches {
-        fn from(x: u8) -> Self {
-            match x {
-                0 => Caches::Sample,
                 _ => panic!("Invalid action")
             }
         }
@@ -69,6 +59,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let sample_copy = sample_cache.clone();
 
-        (Actions::Fetch, Caches::Sample) => (sample_copy, fetch, FetchSampleEntryById),
+        - Actions::Fetch => (sample_copy, fetch, FetchSampleEntryById),
     }
 }

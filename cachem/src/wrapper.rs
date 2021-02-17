@@ -226,6 +226,33 @@ impl Parse for bool {
     }
 }
 
+#[derive(Debug, Default)]
+pub struct EmptyResponse;
+
+#[async_trait]
+impl Parse for EmptyResponse {
+    async fn read<B>(
+        buf: &mut B,
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin  {
+
+        let _ = buf.read_u8().await?;
+        Ok(Self::default())
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B,
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_u8(0u8).await?;
+        Ok(())
+    }
+}
+
 #[cfg(feature = "uuid")]
 #[async_trait]
 impl Parse for uuid::Uuid {

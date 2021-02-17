@@ -50,6 +50,10 @@ use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 /// # }
 pub struct Protocol;
 
+// IDEA: Result in Result
+// Add generics O and E
+// `Result<Result<O, E>, CachemError>`
+
 impl Protocol {
     /// Takes a connection from the connection pool and builds the protocol
     /// based on the information of the given data.
@@ -60,7 +64,7 @@ impl Protocol {
         data: T,
     ) -> Result<R, CachemError>
     where
-        T: Parse + ProtocolRequest,
+        T: Parse + Request,
         R: Parse {
 
         Protocol::request_with_buf(conn.get_mut(), data).await
@@ -76,11 +80,10 @@ impl Protocol {
     ) -> Result<R, CachemError>
     where
         B: AsyncBufRead + AsyncRead + AsyncWrite + Send + Unpin,
-        T: Parse + ProtocolRequest,
+        T: Parse + Request,
         R: Parse {
 
-        buf.write_u8(data.action().into()).await?;
-        buf.write_u8(data.cache().into()).await?;
+        buf.write_u16(data.action().into()).await?;
         data.write(buf).await?;
         buf.flush().await?;
 
@@ -194,37 +197,20 @@ pub trait Parse: Sized {
 ///     }
 /// }
 /// 
-/// pub enum Caches {
-///     Example
-/// }
-///
-/// impl Into<u8> for Caches {
-///     fn into(self) -> u8 {
-///         0u8
-///     }
-/// }
-/// 
 /// #[derive(Debug, Parse)]
 /// pub struct ExampleImplementation(Vec<u8>);
 ///
 /// #[async_trait]
-/// impl ProtocolRequest for ExampleImplementation {
+/// impl Request for ExampleImplementation {
 ///     fn action(&self) -> u8 {
 ///         Actions::Fetch.into()
-///     }
-/// 
-///     fn cache(&self) -> u8 {
-///         Caches::Example.into()
 ///     }
 /// }
 /// # Ok(())
 /// # }
 /// ```
 #[async_trait]
-pub trait ProtocolRequest {
+pub trait Request {
     /// Determines what type of action this request initiates
-    fn action(&self) -> u8;
-
-    /// Determines what type of cache should be used
-    fn cache(&self) -> u8;
+    fn action(&self) -> u16;
 }

@@ -10,17 +10,16 @@ macro_rules! cachem {
     ) => {
         {
             let data = Protocol::read::<_, $model>(&mut $socket).await.unwrap();
-            if let Ok(x) = $cache_copy.$func(data).await {
-                Protocol::response(&mut $socket, x).await
-            } else {
-                Err(CachemError::Empty)
+            match $cache_copy.$func(data).await {
+                Ok(x)  => Protocol::response(&mut $socket, x).await,
+                Err(x) => Protocol::response(&mut $socket, x).await,
             }
         }
     };
     (
         $uri:expr,
         $(let $v:ident = $e:expr;)*
-        $(($action:path, $cache:path) => ($cache_copy:ident, $func:ident, $model:path),)*
+        $(- $action:path => ($cache_copy:ident, $func:ident, $model:path),)*
     ) => {
         use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -47,11 +46,10 @@ macro_rules! cachem {
                         }
                     };
 
-                    let action = Actions::from(buf[0]);
-                    let cache = Caches::from(buf[1]);
-                    let x = match (&action, &cache) {
-                        $((&$action, &$cache) => cachem!($cache_copy, $func, $model, buf_socket),)*
-                        _ => panic!("Invalid action / cache combination ({:?}, {:?})", action, cache)
+                    let action = Actions::from(u16::from_be_bytes(buf));
+                    let x = match &action {
+                        $(&$action => cachem!($cache_copy, $func, $model, buf_socket),)*
+                        _ => panic!("Invalid action ({:?})", action)
                     };
 
                     // return the socket so that we don´t consume it

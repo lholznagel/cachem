@@ -54,7 +54,6 @@ pub fn request(args: proc_macro::TokenStream, input: proc_macro::TokenStream) ->
 
     let name = &item.ident;
     let mut action = Ident::new("Empty", Span::call_site());
-    let mut cache = Ident::new("Empty", Span::call_site());
 
     for arg in args {
         match arg {
@@ -64,9 +63,6 @@ pub fn request(args: proc_macro::TokenStream, input: proc_macro::TokenStream) ->
                 if first == &Ident::new("Actions", Span::call_site()) {
                     let b = path.segments.last().unwrap();
                     action = Ident::new(&b.clone().ident.to_string(), Span::call_site());
-                } else if first == &Ident::new("Caches", Span::call_site()) {
-                    let b = path.segments.last().unwrap();
-                    cache = Ident::new(&b.clone().ident.to_string(), Span::call_site());
                 }
             }
             _ => {
@@ -82,13 +78,9 @@ pub fn request(args: proc_macro::TokenStream, input: proc_macro::TokenStream) ->
         #item
 
         #[async_trait::async_trait]
-        impl cachem::ProtocolRequest for #name {
-            fn action(&self) -> u8 {
+        impl cachem::Request for #name {
+            fn action(&self) -> u16 {
                 Actions::#action.into()
-            }
-
-            fn cache(&self) -> u8 {
-                Caches::#cache.into()
             }
         }
     })

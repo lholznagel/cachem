@@ -26,7 +26,7 @@ struct Demo6 {
     my_vec: Vec<u16>,
 }
 
-#[request(Actions::A, Caches::B)]
+#[request(Actions::A)]
 #[derive(Parse)]
 struct Demo7(pub u32);
 
@@ -37,18 +37,8 @@ enum Actions {
     A
 }
 
-impl Into<u8> for Actions {
-    fn into(self) -> u8 {
-        0u8
-    }
-}
-
-enum Caches {
-    B
-}
-
-impl Into<u8> for Caches {
-    fn into(self) -> u8 {
-        0u8
+impl Into<u16> for Actions {
+    fn into(self) -> u16 {
+        0u16
     }
 }

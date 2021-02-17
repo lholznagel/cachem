@@ -172,14 +172,14 @@ pub fn generate_fn_write_code(struct_name: &Ident, data: &Data) -> TokenStream {
                                     quote! {
                                         u32::from(self.0.len() as u32).write(buf).await?;
                                         for entry in self.0.iter() {
-                                            entry.write(buf).await?
+                                            entry.write(buf).await?;
                                         }
                                     }
                                 } else if x.path.segments.first().unwrap().ident == Ident::new("HashSet", Span::call_site()) {
                                     quote! {
                                         u32::from(self.0.len() as u32).write(buf).await?;
                                         for entry in self.0.iter() {
-                                            entry.write(buf).await?
+                                            entry.write(buf).await?;
                                         }
                                     }
                                 } else {
