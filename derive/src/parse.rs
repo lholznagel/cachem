@@ -118,7 +118,7 @@ pub fn generate_fn_read_code(struct_name: &Ident, data: &Data) -> TokenStream {
             }
         },
         _ => {
-            struct_name.span().unwrap().error(format!("Only sttructs are supported.")).emit();
+            struct_name.span().unwrap().error(format!("Only structs are supported.")).emit();
             return TokenStream::new();
         }
     }
@@ -202,7 +202,7 @@ pub fn generate_fn_write_code(struct_name: &Ident, data: &Data) -> TokenStream {
             }
         },
         _ => {
-            struct_name.span().unwrap().error(format!("Only sttructs are supported.")).emit();
+            struct_name.span().unwrap().error(format!("Only structs are supported.")).emit();
             return TokenStream::new();
         }
     }

@@ -46,6 +46,15 @@ macro_rules! cachem {
                         }
                     };
 
+                    // ping
+                    if buf == [255, 255] {
+                        // pong
+                        buf_socket.write(&[255, 255]).await.unwrap();
+                        buf_socket.flush().await.unwrap();
+                        socket = buf_socket.into_inner();
+                        continue;
+                    }
+
                     let action = Actions::from(u16::from_be_bytes(buf));
                     let x = match &action {
                         $(&$action => cachem!($cache_copy, $func, $model, buf_socket),)*

@@ -42,3 +42,9 @@ impl Into<u16> for Actions {
         0u16
     }
 }
+
+#[derive(Parse)]
+pub enum Demo9 {
+    Field1(String),
+    Field2(u32),
+}

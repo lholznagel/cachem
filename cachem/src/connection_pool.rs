@@ -2,7 +2,7 @@ use std::ops::DerefMut;
 use std::{collections::VecDeque, ops::Deref};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tokio::io::BufStream;
+use tokio::io::{AsyncReadExt, AsyncWriteExt, BufStream};
 use tokio::net::TcpStream;
 use tokio::time::{Duration, sleep};
 
@@ -22,8 +22,21 @@ impl Connection {
     }
 
     /// Gets the [`tokio::io::BufStream`] as a mutable reference
-    pub(crate) fn get_mut(&mut self) -> &mut BufStream<TcpStream> {
+    pub fn get_mut(&mut self) -> &mut BufStream<TcpStream> {
         &mut self.0
+    }
+
+    pub async fn ping(&mut self) -> bool {
+        if let Ok(_) = self.0.get_mut().write_u16(u16::MAX).await {
+            self.0.flush().await.unwrap();
+            if let Ok(_) = self.0.read_u16().await {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 }
 
@@ -84,6 +97,8 @@ pub struct ConnectionPool {
     available: Arc<AtomicUsize>,
     /// Max number of connections the pool can contain
     pool_size: Arc<AtomicUsize>,
+    /// Keeps track of all broken connections
+    broken: Arc<AtomicUsize>,
     /// All connections that are currently available
     connections: Arc<Mutex<VecDeque<Connection>>>,
     url: &'static str
@@ -99,11 +114,73 @@ impl ConnectionPool {
         let pool = Self {
             available: Arc::new(AtomicUsize::new(count)),
             pool_size: Arc::new(AtomicUsize::new(count)),
+            broken: Arc::new(AtomicUsize::new(0)),
             connections: Arc::new(Mutex::new(VecDeque::new())),
             url
         };
-        pool.connect(count).await?;
+
+        let mut connections = VecDeque::new();
+        for _ in 0..count {
+            connections.push_back(pool.connect().await?)
+        }
+        pool.connections.lock().unwrap().extend(connections);
+
+        pool.health();
+
         Ok(pool)
+    }
+
+    pub fn health(&self) {
+        let self_copy = self.clone();
+        let connection_copy = self.connections.clone();
+        tokio::task::spawn(async move {
+            loop {
+                let mut latest_failed = false;
+                let connection = { connection_copy.lock().unwrap().pop_back() };
+
+                if let Some(mut c) = connection {
+                    self_copy.available.fetch_sub(1, Ordering::SeqCst);
+
+                    if !c.ping().await {
+                        log::warn!("Broken connection");
+                        // Try to create a new connection
+                        if let Ok(c) = self_copy.connect().await {
+                            log::info!("New connection.");
+                            // Add the new connection to the pool
+                            { connection_copy.lock().unwrap().push_front(c) };
+                            self_copy.available.fetch_add(1, Ordering::SeqCst);
+                        } else {
+                            // Keep track of the broken connections
+                            self_copy.broken.fetch_add(1, Ordering::SeqCst);
+                            latest_failed = true;
+                            log::error!("Error trying to connect");
+                        }
+                    } else {
+                        // All good, readadd the connection
+                        { connection_copy.lock().unwrap().push_front(c) };
+                        self_copy.available.fetch_add(1, Ordering::SeqCst);
+                    }
+                } else {
+                    log::info!("No connection available.");
+                }
+
+                // If the last connection try failed, don´t try again
+                if !latest_failed {
+                    // Check if there are broken connections and try to connect
+                    for _ in 0..self_copy.broken.load(Ordering::SeqCst) {
+                        // Ignore if there is an error, just try it again
+                        if let Ok(c) = self_copy.connect().await {
+                            log::info!("New connection.");
+                            { connection_copy.lock().unwrap().push_front(c) };
+                            self_copy.available.fetch_add(1, Ordering::SeqCst);
+                            self_copy.broken.fetch_sub(1, Ordering::SeqCst);
+                        }
+                    }
+                }
+
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+        });
     }
 
     /// Returns the currently available connections in the pool
@@ -149,7 +226,12 @@ impl ConnectionPool {
 
     /// Adds the given amount of connections to the pool
     pub async fn scale_up(&self, count: usize) -> Result<(), CachemError> {
-        self.connect(count).await?;
+        let mut connections = VecDeque::new();
+        for _ in 0..count {
+            connections.push_back(self.connect().await?)
+        }
+        self.connections.lock().unwrap().extend(connections);
+
         // increase pool count and make the new connections available
         self.pool_size.fetch_add(count, Ordering::SeqCst);
         self.available.fetch_add(count, Ordering::SeqCst);
@@ -179,17 +261,12 @@ impl ConnectionPool {
         self.available.fetch_add(1, Ordering::SeqCst);
     }
 
-    /// Fills the internal connection pool with the given amount of connections
-    async fn connect(&self, count: usize) -> Result<(), CachemError> {
-        let mut connections = VecDeque::new();
-        for _ in 0..count {
-            let stream = TcpStream::connect(&self.url)
-                .await
-                .map_err(|_| CachemError::ConnectionPoolError(ConnectionPoolError::CannotConnect))?;
-            connections.push_back(Connection::new(stream));
-        }
-        self.connections.lock().unwrap().extend(connections);
-        Ok(())
+    /// Opens a connection and returns it
+    async fn connect(&self) -> Result<Connection, CachemError> {
+        let stream = TcpStream::connect(&self.url)
+            .await
+            .map_err(|_| CachemError::ConnectionPoolError(ConnectionPoolError::CannotConnect))?;
+        Ok(Connection::new(stream))
     }
 
     /// Drops the given amount of connections
