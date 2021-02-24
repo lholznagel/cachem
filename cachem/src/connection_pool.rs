@@ -2,43 +2,12 @@ use std::ops::DerefMut;
 use std::{collections::VecDeque, ops::Deref};
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use metrix_exporter::MetrixSender;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufStream};
 use tokio::net::TcpStream;
 use tokio::time::{Duration, sleep};
 
 use crate::{CachemError, ConnectionPoolError};
-
-/// Wrapper for an [`tokio::net::TcpStream`] in a [`tokio::io::BufStream`].
-/// This is returned when a connection from the [`crate::ConnectionPool`] is requested.
-/// Internally the library should use the underlying buffer for reading and
-/// writing, but externals only should see the wrapper struct.
-pub struct Connection(BufStream<TcpStream>);
-
-impl Connection {
-    /// Takes the given [`tokio::net::TcpStream`] and wraps it in a
-    /// [`tokio::io::BufStream`] and stores it in the struct.
-    pub fn new(stream: TcpStream) -> Self {
-        Self(BufStream::new(stream))
-    }
-
-    /// Gets the [`tokio::io::BufStream`] as a mutable reference
-    pub fn get_mut(&mut self) -> &mut BufStream<TcpStream> {
-        &mut self.0
-    }
-
-    pub async fn ping(&mut self) -> bool {
-        if let Ok(_) = self.0.get_mut().write_u16(u16::MAX).await {
-            self.0.flush().await.unwrap();
-            if let Ok(_) = self.0.read_u16().await {
-                true
-            } else {
-                false
-            }
-        } else {
-            false
-        }
-    }
-}
 
 /// Manages connections to the database.
 ///
@@ -101,22 +70,29 @@ pub struct ConnectionPool {
     broken: Arc<AtomicUsize>,
     /// All connections that are currently available
     connections: Arc<Mutex<VecDeque<Connection>>>,
-    url: &'static str
+    /// Url to the database
+    url: &'static str,
+    /// Connection to metrix server
+    metrix: MetrixSender,
 }
 
 impl ConnectionPool {
     const ACQUIRE_TIMEOUT: u64 = 5u64;
 
+    const METRIC_BROKEN_CONNECTIONS: &'static str = "connection_pool::broken_connections";
+    const METRIC_AVAILABLE_CONNECTIONS: &'static str = "connection_pool::available_connections";
+
     /// Creates a new pool. The given number is the number of connections the
     /// pool will hold. The returned pool is already filled with connections
     /// and can be used.
-    pub async fn new(url: &'static str, count: usize) -> Result<Self, CachemError> {
+    pub async fn new(url: &'static str, metrix: MetrixSender, count: usize) -> Result<Self, CachemError> {
         let pool = Self {
             available: Arc::new(AtomicUsize::new(count)),
             pool_size: Arc::new(AtomicUsize::new(count)),
             broken: Arc::new(AtomicUsize::new(0)),
             connections: Arc::new(Mutex::new(VecDeque::new())),
-            url
+            url,
+            metrix,
         };
 
         let mut connections = VecDeque::new();
@@ -132,6 +108,7 @@ impl ConnectionPool {
 
     pub fn health(&self) {
         let self_copy = self.clone();
+        let metrix_copy = self.metrix.clone();
         let connection_copy = self.connections.clone();
         tokio::task::spawn(async move {
             loop {
@@ -148,17 +125,20 @@ impl ConnectionPool {
                             log::info!("New connection.");
                             // Add the new connection to the pool
                             { connection_copy.lock().unwrap().push_front(c) };
-                            self_copy.available.fetch_add(1, Ordering::SeqCst);
+                            let available_conn = self_copy.available.fetch_add(1, Ordering::SeqCst);
+                            metrix_copy.send(Self::METRIC_AVAILABLE_CONNECTIONS, available_conn as u128 + 1).await;
                         } else {
                             // Keep track of the broken connections
-                            self_copy.broken.fetch_add(1, Ordering::SeqCst);
+                            let broken_conn = self_copy.broken.fetch_add(1, Ordering::SeqCst);
                             latest_failed = true;
+                            metrix_copy.send(Self::METRIC_BROKEN_CONNECTIONS, broken_conn as u128 + 1).await;
                             log::error!("Error trying to connect");
                         }
                     } else {
                         // All good, readadd the connection
                         { connection_copy.lock().unwrap().push_front(c) };
-                        self_copy.available.fetch_add(1, Ordering::SeqCst);
+                        let available_conn = self_copy.available.fetch_add(1, Ordering::SeqCst);
+                        metrix_copy.send(Self::METRIC_AVAILABLE_CONNECTIONS, available_conn as u128 + 1).await;
                     }
                 } else {
                     log::info!("No connection available.");
@@ -172,8 +152,10 @@ impl ConnectionPool {
                         if let Ok(c) = self_copy.connect().await {
                             log::info!("New connection.");
                             { connection_copy.lock().unwrap().push_front(c) };
-                            self_copy.available.fetch_add(1, Ordering::SeqCst);
-                            self_copy.broken.fetch_sub(1, Ordering::SeqCst);
+                            let available_conn = self_copy.available.fetch_add(1, Ordering::SeqCst);
+                            let broken_conn = self_copy.broken.fetch_sub(1, Ordering::SeqCst);
+                            metrix_copy.send(Self::METRIC_AVAILABLE_CONNECTIONS, available_conn as u128 + 1).await;
+                            metrix_copy.send(Self::METRIC_BROKEN_CONNECTIONS, broken_conn as u128 - 1).await;
                         }
                     }
                 }
@@ -276,6 +258,38 @@ impl ConnectionPool {
             std::mem::drop(connections.pop_front());
         }
         Ok(())
+    }
+}
+
+/// Wrapper for an [`tokio::net::TcpStream`] in a [`tokio::io::BufStream`].
+/// This is returned when a connection from the [`crate::ConnectionPool`] is requested.
+/// Internally the library should use the underlying buffer for reading and
+/// writing, but externals only should see the wrapper struct.
+pub struct Connection(BufStream<TcpStream>);
+
+impl Connection {
+    /// Takes the given [`tokio::net::TcpStream`] and wraps it in a
+    /// [`tokio::io::BufStream`] and stores it in the struct.
+    pub fn new(stream: TcpStream) -> Self {
+        Self(BufStream::new(stream))
+    }
+
+    /// Gets the [`tokio::io::BufStream`] as a mutable reference
+    pub fn get_mut(&mut self) -> &mut BufStream<TcpStream> {
+        &mut self.0
+    }
+
+    pub async fn ping(&mut self) -> bool {
+        if let Ok(_) = self.0.get_mut().write_u16(u16::MAX).await {
+            self.0.flush().await.unwrap();
+            if let Ok(_) = self.0.read_u16().await {
+                true
+            } else {
+                false
+            }
+        } else {
+            false
+        }
     }
 }
 

@@ -58,7 +58,7 @@ macro_rules! cachem {
                     let action = Actions::from(u16::from_be_bytes(buf));
                     let x = match &action {
                         $(&$action => cachem!($cache_copy, $func, $model, buf_socket),)*
-                        _ => panic!("Invalid action ({:?})", action)
+                        _ => { log::error!("Invalid action ({:?})", action); Ok(()) }
                     };
 
                     // return the socket so that we don´t consume it

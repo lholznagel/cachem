@@ -7,4 +7,5 @@ edition = "2018"
 [dependencies]
 async-trait = "0.1.42"
 cachem = { path = "../cachem", features = ["derive", "with-uuid"] }
+log = "0.4.14"
 tokio = { version = "1.1.1", features = ["full"] }
