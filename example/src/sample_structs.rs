@@ -1,7 +1,29 @@
 use cachem::*;
+use std::collections::HashSet;
 
 #[derive(Default, Parse)]
-struct Demo {
+struct Example1;
+
+#[derive(Default, Parse)]
+struct Example2(pub u32);
+
+#[derive(Parse)]
+struct Example3(pub Example2);
+
+#[derive(Default, Parse)]
+struct Example4(pub Vec<Example2>);
+
+#[derive(Default, Parse)]
+struct Example5(pub HashSet<u32>);
+
+#[derive(Parse)]
+struct Example6(pub Example8);
+
+#[derive(Parse)]
+struct Example7(pub Vec<Example8>);
+
+#[derive(Default, Parse)]
+struct Example8 {
     val_u32: u32,
     val_u64: u64,
     val_u128: u128,
@@ -11,27 +33,21 @@ struct Demo {
     val_bool: bool,
 }
 
-#[derive(Default, Parse)]
-struct Demo2(pub Vec<Demo>);
-
-#[derive(Default, Parse)]
-struct Demo3(pub u32);
-
-#[derive(Default, Parse)]
-struct Demo4;
+#[derive(Parse)]
+struct Example9 {
+    my_vec: Vec<u16>,
+}
 
 #[derive(Parse)]
-struct Demo6 {
-    not_a_vec: u32,
-    my_vec: Vec<u16>,
+struct Example10 {
+    val1: u32,
+    val2: Vec<u32>,
+    val3: Example2,
 }
 
 #[request(Actions::A)]
 #[derive(Parse)]
-struct Demo7(pub u32);
-
-#[derive(Parse)]
-struct Demo8(pub Demo7);
+struct Example11(pub u32);
 
 enum Actions {
     A

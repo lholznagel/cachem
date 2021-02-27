@@ -79,7 +79,7 @@ pub struct ConnectionPool {
 impl ConnectionPool {
     const ACQUIRE_TIMEOUT: u64 = 5u64;
 
-    const METRIC_BROKEN_CONNECTIONS: &'static str = "connection_pool::broken_connections";
+    const METRIC_BROKEN_CONNECTIONS:    &'static str = "connection_pool::broken_connections";
     const METRIC_AVAILABLE_CONNECTIONS: &'static str = "connection_pool::available_connections";
 
     /// Creates a new pool. The given number is the number of connections the

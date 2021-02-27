@@ -7,4 +7,4 @@ docs-open:
 	cargo doc --no-deps --document-private-items --all-features --open
 
 sync-virgo:
-	rsync --recursive --update --inplace --delete --quiet --exclude={'.git','target','web/node_modules'} . virgo:dev/cachem
+	rsync --recursive --inplace --delete --quiet --exclude={'.git','target','web/node_modules'} . virgo:dev/cachem

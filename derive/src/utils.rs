@@ -1,10 +1,18 @@
-use proc_macro2::Span;
+use proc_macro2::{Span, TokenStream};
 use syn::{GenericArgument, Ident, PathArguments, Type, TypePath};
+
+pub fn error(span: Span, message: String) -> TokenStream {
+    span
+        .unwrap()
+        .error(message)
+        .emit();
+    TokenStream::new()
+}
 
 pub fn is_collection(
     type_path: &TypePath
 ) -> bool {
-    is_vec(&type_path) || is_hash_set(&type_path)
+    is_vec(&type_path) || is_hashset(&type_path)
 }
 
 pub fn is_vec(
@@ -13,16 +21,16 @@ pub fn is_vec(
     get_ident(&type_path) == Ident::new("Vec", Span::call_site())
 }
 
-pub fn is_hash_set(
+pub fn is_hashset(
     type_path: &TypePath
 ) -> bool {
     get_ident(&type_path) == Ident::new("HashSet", Span::call_site())
 }
 
 pub fn ident_from_type(
-    type_: &Type
+    typ: &Type
 ) -> Ident {
-    match type_ {
+    match typ {
         Type::Path(x) => {
             x
                 .path
@@ -32,7 +40,7 @@ pub fn ident_from_type(
                 .ident
                 .clone()
         },
-        _ => panic!("Invalid datatype, {:?}", &type_)
+        _ => panic!("Invalid datatype, {:?}", &typ)
     }
 }
 
