@@ -227,10 +227,10 @@ impl Parse for bool {
 }
 
 #[derive(Debug, Default)]
-pub struct EmptyResponse;
+pub struct EmptyMsg;
 
 #[async_trait]
-impl Parse for EmptyResponse {
+impl Parse for EmptyMsg {
     async fn read<B>(
         buf: &mut B,
     ) -> Result<Self, CachemError>

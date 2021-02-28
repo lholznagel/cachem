@@ -1,20 +1,22 @@
 #![feature(proc_macro_diagnostic)]
 
-mod utils;
+mod action;
 mod parse;
+mod utils;
 
+use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
 use syn::{AttributeArgs, DeriveInput, NestedMeta, parse_macro_input};
 use syn::spanned::Spanned;
 
 #[proc_macro_derive(Parse)]
-pub fn derive_parse(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn derive_parse(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     let name = input.ident;
-    let fn_read = parse::generate_fn_read_code(&name, &input.data);
-    let fn_write = parse::generate_fn_write_code(&name, &input.data);
+    let fn_read  = crate::parse::generate_fn_read(&name, &input.data);
+    let fn_write = crate::parse::generate_fn_write(&name, &input.data);
 
     let generics = input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
@@ -44,11 +46,35 @@ pub fn derive_parse(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         }
     };
 
-    proc_macro::TokenStream::from(expanded)
+    TokenStream::from(expanded)
+}
+
+#[proc_macro_derive(Action)]
+pub fn derive_action(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    let name = input.ident;
+    let fn_from = crate::action::generate_fn_from(&name, &input.data);
+    let fn_into = crate::action::generate_fn_into(&name, &input.data);
+
+    let expand = quote! {
+        impl From<u16> for #name {
+            fn from(x: u16) -> Self {
+                #fn_from
+            }
+        }
+
+        impl Into<u16> for #name {
+            fn into(self) -> u16 {
+                #fn_into
+            }
+        }
+    };
+    TokenStream::from(expand)
 }
 
 #[proc_macro_attribute]
-pub fn request(args: proc_macro::TokenStream, input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn request(args: TokenStream, input: TokenStream) -> TokenStream {
     let args = parse_macro_input!(args as AttributeArgs);
     let item: DeriveInput = syn::parse(input).unwrap();
 

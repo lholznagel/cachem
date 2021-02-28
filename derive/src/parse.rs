@@ -3,7 +3,7 @@ use quote::quote;
 use syn::{Data, Fields, Ident, Type};
 use syn::spanned::Spanned;
 
-pub fn generate_fn_read_code(struct_name: &Ident, data: &Data) -> TokenStream {
+pub fn generate_fn_read(struct_name: &Ident, data: &Data) -> TokenStream {
     match *data {
         Data::Struct(ref data) => {
             match data.fields {
@@ -115,7 +115,7 @@ pub fn generate_fn_read_code(struct_name: &Ident, data: &Data) -> TokenStream {
     }
 }
 
-pub fn generate_fn_write_code(struct_name: &Ident, data: &Data) -> TokenStream {
+pub fn generate_fn_write(struct_name: &Ident, data: &Data) -> TokenStream {
     match *data {
         Data::Struct(ref data) => {
             match data.fields.clone() {

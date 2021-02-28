@@ -49,12 +49,9 @@ struct Example10 {
 #[derive(Parse)]
 struct Example11(pub u32);
 
+#[derive(Action)]
 enum Actions {
-    A
-}
-
-impl Into<u16> for Actions {
-    fn into(self) -> u16 {
-        0u16
-    }
+    A,
+    B,
+    Invalid,
 }
