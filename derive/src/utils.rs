@@ -44,7 +44,7 @@ pub fn ident_from_type(
     }
 }
 
-pub fn get_collection_datatype(
+pub fn get_datatype(
     type_path: &TypePath
 ) -> Ident {
     match &type_path
@@ -72,6 +72,18 @@ pub fn get_collection_datatype(
             },
             _ => panic!("Invalid path argument")
         }
+}
+
+pub fn get_datatype_enum(
+    type_path: &TypePath
+) -> Ident {
+    type_path
+        .path
+        .segments
+        .first()
+        .unwrap()
+        .ident
+        .clone()
 }
 
 fn get_ident(

@@ -18,7 +18,7 @@ pub fn generate_fn_read(struct_name: &Ident, data: &Data) -> TokenStream {
                         match &field.ty {
                             Type::Path(x) => {
                                 if crate::utils::is_collection(&x) {
-                                    let datatype = crate::utils::get_collection_datatype(&x);
+                                    let datatype = crate::utils::get_datatype(&x);
 
                                     if crate::utils::is_vec(&x) {
                                         let vec = read_vec(&datatype);
@@ -64,7 +64,7 @@ pub fn generate_fn_read(struct_name: &Ident, data: &Data) -> TokenStream {
                         match &f.ty {
                             Type::Path(x) => {
                                 if crate::utils::is_collection(&x) {
-                                    let datatype = crate::utils::get_collection_datatype(&x);
+                                    let datatype = crate::utils::get_datatype(&x);
 
                                     let code = if crate::utils::is_vec(&x) {
                                         read_vec(&datatype)
@@ -104,6 +104,92 @@ pub fn generate_fn_read(struct_name: &Ident, data: &Data) -> TokenStream {
 
                     Ok(Self {})
                 }
+            }
+        },
+        Data::Enum(ref data) => {
+            let fields = data.variants.iter().enumerate().map(|(i, v)| {
+                let i = i as u8;
+                let field_name = &v.ident;
+                match v.fields {
+                    Fields::Unnamed(ref fields) => {
+                        let datatype = fields
+                            .unnamed
+                            .iter()
+                            .map(|f| {
+
+                            match &f.ty {
+                                Type::Path(x) => {
+                                    let datatype = crate::utils::get_datatype_enum(&x);
+                                    if crate::utils::is_vec(&x) {
+                                        let datatype = crate::utils::get_datatype(&x);
+                                        quote! {
+                                            Self::#field_name({
+                                                let entry_count = u32::read(buf).await?;
+                                                let mut entries = Vec::new();
+
+                                                for _ in 0..entry_count {
+                                                    let x = #datatype::read(buf).await?;
+                                                    entries.push(x);
+                                                }
+                                                entries
+                                            })
+                                        }
+                                    } else if crate::utils::is_hashset(&x) {
+                                        let datatype = crate::utils::get_datatype(&x);
+                                        quote! {
+                                            Self::#field_name({
+                                                let entry_count = u32::read(buf).await?;
+                                                let mut entries = std::collections::HashSet::new();
+
+                                                for _ in 0..entry_count {
+                                                    let x = #datatype::read(buf).await?;
+                                                    entries.insert(x);
+                                                }
+                                                entries
+                                            })
+                                        }
+                                    } else {
+                                        quote! {
+                                            Self::#field_name(#datatype::read(buf).await?)
+                                        }
+                                    }
+                                },
+                                _ => {
+                                    return crate::utils::error(
+                                        f.ty.span(),
+                                        "The given type is not supported.".into()
+                                    );
+                                }
+                            }
+                        });
+                        quote! {
+                            #i => #(#datatype)*
+                        }
+                    },
+                    Fields::Unit => {
+                        quote! {
+                            #i => {
+                                cachem::EmptyMsg::read(buf).await?;
+                                Self::#field_name
+                            }
+                        }
+                    }
+                    _ => {
+                        return crate::utils::error(
+                            v.fields.span(),
+                            "Only unnamed and unit fields are supported.".into()
+                        );
+                    }
+                }
+            });
+
+            quote! {
+                let index = u8::read(buf).await?;
+                let ret = match index {
+                    #(#fields),*,
+                    _ => panic!("Invalid enum field")
+                };
+                Ok(ret)
             }
         },
         _ => {
@@ -187,8 +273,75 @@ pub fn generate_fn_write(struct_name: &Ident, data: &Data) -> TokenStream {
                 }
             }
         },
+        Data::Enum(ref data) => {
+            let fields = data.variants.iter().enumerate().map(|(i, v)| {
+                let i = i as u8;
+                let field_name = &v.ident;
+                match v.fields {
+                    Fields::Unnamed(ref fields) => {
+                        let datatype = fields
+                            .unnamed
+                            .iter()
+                            .map(|f| {
+
+                            match &f.ty {
+                                Type::Path(path) => {
+                                    if crate::utils::is_collection(path) {
+                                        quote! {
+                                            Self::#field_name(x) => {
+                                                #i.write(buf).await?;
+                                                u32::from(x.len() as u32).write(buf).await?;
+                                                for entry in x.iter() {
+                                                    entry.write(buf).await?;
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        quote! {
+                                            Self::#field_name(x) => {
+                                                #i.write(buf).await?;
+                                                x.write(buf).await?;
+                                            }
+                                        }
+                                    }
+                                },
+                                _ => {
+                                    return crate::utils::error(
+                                        f.ty.span(),
+                                        "The given type is not supported.".into()
+                                    );
+                                }
+                            }
+                        });
+                        quote! {
+                            #(#datatype)*
+                        }
+                    },
+                    Fields::Unit => {
+                        quote! {
+                            Self::#field_name => {
+                                #i.write(buf).await?;
+                                cachem::EmptyMsg::default().write(buf).await?;
+                            }
+                        }
+                    }
+                    _ => {
+                        return crate::utils::error(
+                            v.fields.span(),
+                            "Only unnamed fields are supported.".into()
+                        );
+                    }
+                }
+            });
+
+            quote! {
+                match self {
+                    #(#fields),*
+                };
+            }
+        },
         _ => {
-            struct_name.span().unwrap().error(format!("Only structs are supported.")).emit();
+            struct_name.span().unwrap().error(format!("Only structs and enums are supported.")).emit();
             return TokenStream::new();
         }
     }
