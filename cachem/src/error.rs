@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub enum CachemError {
     Empty,
+    NotReachable,
     IoError(std::io::Error),
     StringParseError(std::string::FromUtf8Error),
     ConnectionPoolError(ConnectionPoolError),

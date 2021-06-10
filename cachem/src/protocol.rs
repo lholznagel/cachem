@@ -50,10 +50,6 @@ use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 /// # }
 pub struct Protocol;
 
-// IDEA: Result in Result
-// Add generics O and E
-// `Result<Result<O, E>, CachemError>`
-
 impl Protocol {
     /// Takes a connection from the connection pool and builds the protocol
     /// based on the information of the given data.

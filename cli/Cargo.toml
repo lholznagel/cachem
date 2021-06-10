@@ -1,0 +1,12 @@
+[package]
+name = "cli"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+cachem = { path = "../cachem" }
+cachem_example = { path = "../example" }
+tokio = { version = "1.5.0", features = ["full"] }
+rustyline = "8.2.0"
+rustyline-derive = "0.4.0"
+

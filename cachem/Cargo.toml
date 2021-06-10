@@ -6,14 +6,15 @@ edition = "2018"
 
 [dependencies]
 async-trait = "0.1.42"
+cachem_derive = { path = "../derive", optional = true }
+futures = "0.3.15"
 log = "0.4.14"
 metrix_exporter = { path = "../../metrix/exporter" }
-tokio = { version = "1.2.0", features = ["full"] }
+tokio = { version = "1.6.0", features = ["full"] }
 
-cachem_derive = { path = "../derive", optional = true }
 uuid = { version = "0.8.2", optional = true }
 
 [features]
-default = []
+default = ["derive"]
 derive = ["cachem_derive"]
 with-uuid = ["uuid"]

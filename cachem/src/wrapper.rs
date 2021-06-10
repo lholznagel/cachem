@@ -1,3 +1,5 @@
+use std::{collections::HashMap, hash::Hash};
+
 use crate::{CachemError, Parse};
 
 use async_trait::async_trait;
@@ -222,6 +224,188 @@ impl Parse for bool {
         B: AsyncWrite + Send + Unpin {
 
         buf.write_u8(*self as u8).await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<T: Parse + Send + Sync> Parse for Vec<T> {
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        let entry_count = u32::read(buf).await?;
+        let mut entries = Vec::with_capacity(entry_count as usize);
+
+        for _ in 0..entry_count {
+            entries.push(T::read(buf).await?);
+        }
+
+        Ok(entries)
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_u32(self.len() as u32).await?;
+        for entry in self {
+            entry.write(buf).await?;
+        }
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<K, V> Parse for HashMap<K, V>
+where
+    K: Parse + Eq + Hash + Send + Sync,
+    V: Parse + Send + Sync {
+
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        let entry_count = u32::read(buf).await?;
+        let mut entries = HashMap::with_capacity(entry_count as usize);
+
+        for _ in 0..entry_count {
+            let k = K::read(buf).await?;
+            let v = V::read(buf).await?;
+            entries.insert(k, v);
+        }
+
+        Ok(entries)
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_u32(self.len() as u32).await?;
+        for (k, v) in self {
+            k.write(buf).await?;
+            v.write(buf).await?;
+        }
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<T> Parse for Option<T>
+where 
+    T: Parse + Send + Sync {
+
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        let res = bool::read(buf).await?;
+        if res {
+            let some = T::read(buf).await?;
+            Ok(Some(some))
+        } else {
+            Ok(None)
+        }
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        match self {
+            Some(x) => {
+                true.write(buf).await?;
+                x.write(buf).await?;
+            },
+            None => {
+                false.write(buf).await?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl<T, E> Parse for Result<T, E>
+where
+    T: Parse + Send + Sync,
+    E: Parse + Send + Sync {
+
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        let res = bool::read(buf).await?;
+        if res {
+            let ok = T::read(buf).await?;
+            Ok(Ok(ok))
+        } else {
+            let err = E::read(buf).await?;
+            Ok(Err(err))
+        }
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        match self {
+            Ok(x) => {
+                true.write(buf).await?;
+                x.write(buf).await?;
+            },
+            Err(x) => {
+                false.write(buf).await?;
+                x.write(buf).await?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Parse for () {
+    async fn read<B>(
+        _: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        Ok(())
+    }
+
+    async fn write<B>(
+        &self,
+        _: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
         Ok(())
     }
 }
