@@ -1,5 +1,5 @@
 use cachem::*;
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 #[derive(Default, Parse)]
 struct Example1;
@@ -17,7 +17,7 @@ struct Example4(pub Vec<u32>);
 struct Example5(pub Vec<Example2>);
 
 #[derive(Debug, Default, Parse, PartialEq, Eq)]
-struct Example6(pub HashSet<u32>);
+struct Example6(pub HashMap<u32, u32>);
 
 #[derive(Debug, Default, Parse, PartialEq)]
 struct Example8 {
@@ -49,15 +49,20 @@ enum Example11 {
     Empty,
 }
 
-#[request(Actions::A)]
 #[derive(Default, Parse, PartialEq, Eq)]
 struct Example12(pub u32);
 
-#[derive(Action)]
-enum Actions {
-    A,
-    B,
-    Invalid,
+#[derive(Parse)]
+struct Example13 {
+    field: u16
+}
+
+#[derive(Get, Debug)]
+struct Example14 {
+    #[cachem(Primary)]
+    primary: u32,
+    secondary: u64,
+    non_index: u32,
 }
 
 #[cfg(test)]

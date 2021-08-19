@@ -1,3 +1,5 @@
+//! Implementations of the [cachem::Parse] trait for the basic datatypes.
+
 use std::{collections::HashMap, hash::Hash};
 
 use crate::{CachemError, Parse};
@@ -121,6 +123,121 @@ impl Parse for u128 {
 }
 
 #[async_trait]
+impl Parse for i8 {
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        Ok(buf.read_i8().await?)
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_i8(*self).await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Parse for i16 {
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        Ok(buf.read_i16().await?)
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_i16(*self).await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Parse for i32 {
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        Ok(buf.read_i32().await?)
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_i32(*self).await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Parse for i64 {
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        Ok(buf.read_i64().await?)
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_i64(*self).await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
+impl Parse for i128 {
+    async fn read<B>(
+        buf: &mut B
+    ) -> Result<Self, CachemError>
+    where
+        B: AsyncBufRead + AsyncRead + Send + Unpin {
+
+        Ok(buf.read_i128().await?)
+    }
+
+    async fn write<B>(
+        &self,
+        buf: &mut B
+    ) -> Result<(), CachemError>
+    where
+        B: AsyncWrite + Send + Unpin {
+
+        buf.write_i128(*self).await?;
+        Ok(())
+    }
+}
+
+#[async_trait]
 impl Parse for f32 {
     async fn read<B>(
         buf: &mut B
@@ -170,7 +287,6 @@ impl Parse for f64 {
     }
 }
 
-
 #[async_trait]
 impl Parse for String {
     async fn read<B>(
@@ -198,7 +314,7 @@ impl Parse for String {
     where
         B: AsyncWrite + Send + Unpin {
 
-        buf.write_all(&self.as_bytes()).await?;
+        buf.write_all(self.as_bytes()).await?;
         buf.write_u8(0u8).await?;
         Ok(())
     }
@@ -410,6 +526,10 @@ impl Parse for () {
     }
 }
 
+/// Wrapper for an empty message.
+/// An empty message writes a single byte in the buffer so that the other side
+/// knows that the transmission is over and no more data is expected.
+///
 #[derive(Debug, Default)]
 pub struct EmptyMsg;
 

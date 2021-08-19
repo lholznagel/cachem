@@ -1,32 +1,37 @@
-use proc_macro2::{Span, TokenStream};
-use syn::{GenericArgument, Ident, PathArguments, Type, TypePath};
+//! This file contains some general purpose functions
 
-pub fn error(span: Span, message: String) -> TokenStream {
+use proc_macro2::{Span, TokenStream};
+use syn::{Ident, Type, TypePath};
+
+/// Generates a new [proc_macro2::TokenStream] error
+///
+/// # Params
+///
+/// * `span` - Span of the error
+/// * `msg`  - Message of the error to display
+///
+/// # Returns
+///
+/// [proc_macro2::TokenStream] error
+///
+pub fn error(span: Span, msg: String) -> TokenStream {
     span
         .unwrap()
-        .error(message)
+        .error(msg)
         .emit();
     TokenStream::new()
 }
 
-pub fn is_collection(
-    type_path: &TypePath
-) -> bool {
-    is_vec(&type_path) || is_hashset(&type_path)
-}
-
-pub fn is_vec(
-    type_path: &TypePath
-) -> bool {
-    get_ident(&type_path) == Ident::new("Vec", Span::call_site())
-}
-
-pub fn is_hashset(
-    type_path: &TypePath
-) -> bool {
-    get_ident(&type_path) == Ident::new("HashSet", Span::call_site())
-}
-
+/// Extracts the datatype from a [syn::Type]
+///
+/// # Params
+///
+/// * `typ` - Type where the datatype should be extracted from
+///
+/// # Returns
+///
+/// Datatype of the given [syn::Type]
+///
 pub fn ident_from_type(
     typ: &Type
 ) -> Ident {
@@ -44,36 +49,16 @@ pub fn ident_from_type(
     }
 }
 
-pub fn get_datatype(
-    type_path: &TypePath
-) -> Ident {
-    match &type_path
-        .path
-        .segments
-        .first()
-        .unwrap()
-        .arguments {
-            PathArguments::AngleBracketed(ref path_arg) => {
-                match path_arg
-                    .args
-                    .first()
-                    .unwrap() {
-
-                    GenericArgument::Type(x) => {
-                        match x {
-                            Type::Path(x) => {
-                                get_ident(x)
-                            },
-                            _ => panic!("Invalid type")
-                        }
-                    },
-                    _ => panic!("Invalid generic argument")
-                }
-            },
-            _ => panic!("Invalid path argument")
-        }
-}
-
+/// Extracts the datatype from the given [syn::TypePath]
+///
+/// # Params
+///
+/// * `type_path` - Path where the datatype should be extracted from
+///
+/// # Returns
+///
+/// Datatype from the [sync::TypePath]
+///
 pub fn get_datatype_enum(
     type_path: &TypePath
 ) -> Ident {
@@ -84,20 +69,4 @@ pub fn get_datatype_enum(
         .unwrap()
         .ident
         .clone()
-}
-
-fn get_ident(
-    type_path: &TypePath
-) -> Ident {
-    if let Some(x) = type_path.path.get_ident() {
-        x.clone()
-    }  else {
-        type_path
-            .path
-            .segments
-            .first()
-            .unwrap()
-            .ident
-            .clone()
-    }
 }

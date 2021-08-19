@@ -56,7 +56,7 @@ impl<T> LeftRight<T> where T: Clone + Default + Send {
     ///
     /// # Example:
     /// ``` rust
-    /// use caph_db::LeftRight;
+    /// use cachem::LeftRight;
     /// use std::collections::HashMap;
     /// 
     /// // Creates a new [LeftRight] instance, the [HashMap] can be replace
@@ -89,7 +89,7 @@ impl<T> LeftRight<T> where T: Clone + Default + Send {
     ///
     /// # Example:
     /// ``` rust
-    /// use caph_db::LeftRight;
+    /// use cachem::LeftRight;
     /// use std::collections::HashMap;
     /// 
     /// // Creates a new [LeftRight] instance, the [HashMap] can be replace
@@ -100,6 +100,7 @@ impl<T> LeftRight<T> where T: Clone + Default + Send {
     ///     { x.entry(5).and_modify(|x| *x += 1).or_insert(0); }
     /// );
     /// ```
+    ///
     pub fn write(&self, f: impl FnOnce(&mut T)) {
         // Make sure that we are the only ones that manipulate the structure
         while self
@@ -191,7 +192,7 @@ impl Active {
     }
 
     /// Swaps [ActiveSide::Left] to [ActiveSide::Right] and
-    /// [Active::Right] to [Active::Left]
+    /// [ActiveSide::Right] to [ActiveSide::Left]
     pub fn swap(&self, active: ActiveSide) {
         self.0.store(!*active, Ordering::SeqCst);
     }

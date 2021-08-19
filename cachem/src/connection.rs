@@ -1,6 +1,7 @@
 use crate::{CachemError, Parse};
 use super::{Command, ConnectionPool};
 
+use std::convert::AsMut;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
@@ -27,11 +28,7 @@ impl Connection {
     /// * `false` -> Connection is broken and should not be used
     /// * `true`  -> Connection is healthy and can be used
     pub async fn is_healthy(&mut self) -> bool {
-        if let Ok(_) = self.ping().await {
-            true
-        } else {
-            false
-        }
+        matches!(self.ping().await, Ok(true))
     }
 
     /// Sends a PING command to the server
@@ -60,9 +57,10 @@ impl Connection {
         self.0.get_mut().write_u8(Command::Ping.into()).await?;
         self.0.flush().await?;
 
-        if let Ok(_) = u8::read(&mut self.0).await {
+        if u8::read(&mut self.0).await.is_ok() {
             Ok(true)
         } else {
+            log::error!("Connection not healthy");
             Ok(false)
         }
     }
@@ -87,11 +85,11 @@ impl Connection {
     ///
     /// ```no_run
     /// # use cachem::*;
-    /// # #[tokio::main]
     /// enum CacheName { A }
     /// impl Into<u8> for CacheName {
     ///     fn into(self) -> u8 { 0u8 }
     /// }
+    /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// // creates a new pool with one connection
     /// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1usize).await?;
@@ -116,22 +114,6 @@ impl Connection {
         Ok(Option::<R>::read(&mut self.0).await?)
     }
 
-    pub async fn fget<C, I, F, R>(&mut self, cache: C, idx: I, filter: Option<F>) -> Result<Option<R>, CachemError>
-    where
-        C: Into<u8>,
-        I: Parse,
-        F: Parse + Send + Sync,
-        R: Parse + Send + Sync {
-
-        self.0.get_mut().write_u8(Command::Get.into()).await?;
-        self.0.get_mut().write_u8(cache.into()).await?;
-        idx.write(&mut self.0.get_mut()).await?;
-        filter.write(&mut self.0.get_mut()).await?;
-        self.0.flush().await?;
-
-        Ok(Option::<R>::read(&mut self.0).await?)
-    }
-
     /// Sends a MGET command to the server
     ///
     /// # Params
@@ -148,11 +130,11 @@ impl Connection {
     ///
     /// ```no_run
     /// # use cachem::*;
-    /// # #[tokio::main]
     /// enum CacheName { A }
     /// impl Into<u8> for CacheName {
     ///     fn into(self) -> u8 { 0u8 }
     /// }
+    /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// // creates a new pool with one connection
     /// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1usize).await?;
@@ -187,17 +169,17 @@ impl Connection {
     ///
     /// ```no_run
     /// # use cachem::*;
-    /// # #[tokio::main]
     /// enum CacheName { A }
     /// impl Into<u8> for CacheName {
     ///     fn into(self) -> u8 { 0u8 }
     /// }
+    /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// // creates a new pool with one connection
     /// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1usize).await?;
     /// // get a connection
     /// let mut conn = pool.acquire().await?;
-    /// conn.keys(CacheName::A).await;
+    /// conn.keys::<_, u32>(CacheName::A).await;
     ///
     /// # Ok(())
     /// # }
@@ -225,17 +207,17 @@ impl Connection {
     ///
     /// ```no_run
     /// # use cachem::*;
-    /// # #[tokio::main]
     /// enum CacheName { A }
     /// impl Into<u8> for CacheName {
     ///     fn into(self) -> u8 { 0u8 }
     /// }
+    /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// // creates a new pool with one connection
     /// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1usize).await?;
     /// // get a connection
     /// let mut conn = pool.acquire().await?;
-    /// conn.mexists(CacheName::A, 0u32).await;
+    /// conn.exists(CacheName::A, 0u32).await;
     ///
     /// # Ok(())
     /// # }
@@ -264,11 +246,11 @@ impl Connection {
     ///
     /// ```no_run
     /// # use cachem::*;
-    /// # #[tokio::main]
     /// enum CacheName { A }
     /// impl Into<u8> for CacheName {
     ///     fn into(self) -> u8 { 0u8 }
     /// }
+    /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// // creates a new pool with one connection
     /// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1usize).await?;
@@ -304,11 +286,11 @@ impl Connection {
     ///
     /// ```no_run
     /// # use cachem::*;
-    /// # #[tokio::main]
     /// enum CacheName { A }
     /// impl Into<u8> for CacheName {
     ///     fn into(self) -> u8 { 0u8 }
     /// }
+    /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// // creates a new pool with one connection
     /// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1usize).await?;
@@ -346,11 +328,12 @@ impl Connection {
     ///
     /// ```no_run
     /// # use cachem::*;
-    /// # #[tokio::main]
+    /// # use std::collections::HashMap;
     /// enum CacheName { A }
     /// impl Into<u8> for CacheName {
     ///     fn into(self) -> u8 { 0u8 }
     /// }
+    /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// // creates a new pool with one connection
     /// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1usize).await?;
@@ -359,7 +342,7 @@ impl Connection {
     ///
     /// let mut data = HashMap::new();
     /// data.insert(0u32, 1u32);
-    /// data.insret(1u32, 2u32);
+    /// data.insert(1u32, 2u32);
     /// conn.mset(CacheName::A, data).await;
     ///
     /// # Ok(())
@@ -391,11 +374,11 @@ impl Connection {
     ///
     /// ```no_run
     /// # use cachem::*;
-    /// # #[tokio::main]
     /// enum CacheName { A }
     /// impl Into<u8> for CacheName {
     ///     fn into(self) -> u8 { 0u8 }
     /// }
+    /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// // creates a new pool with one connection
     /// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1usize).await?;
@@ -416,6 +399,7 @@ impl Connection {
         idx.write(&mut self.0.get_mut()).await?;
         self.0.flush().await?;
 
+        u8::read(&mut self.0).await?;
         Ok(())
     }
 
@@ -430,11 +414,11 @@ impl Connection {
     ///
     /// ```no_run
     /// # use cachem::*;
-    /// # #[tokio::main]
     /// enum CacheName { A }
     /// impl Into<u8> for CacheName {
     ///     fn into(self) -> u8 { 0u8 }
     /// }
+    /// # #[tokio::main]
     /// # async fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// // creates a new pool with one connection
     /// let pool = ConnectionPool::new("127.0.0.1:1337".into(), 1usize).await?;
@@ -455,7 +439,14 @@ impl Connection {
         ids.write(&mut self.0.get_mut()).await?;
         self.0.flush().await?;
 
+        u8::read(&mut self.0).await?;
         Ok(())
+    }
+}
+
+impl AsMut<BufStream<TcpStream>> for Connection {
+    fn as_mut(&mut self) -> &mut BufStream<TcpStream> {
+        &mut self.0
     }
 }
 
@@ -487,7 +478,7 @@ impl Deref for ConnectionGuard {
     type Target = Connection;
 
     fn deref(&self) -> &Self::Target {
-        &self.connection.as_ref().unwrap()
+        self.connection.as_ref().unwrap()
     }
 }
 
